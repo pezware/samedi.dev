@@ -19,50 +19,50 @@ stages. Each stage delivers a complete, tested slice of functionality.
 
 **Goal:** Set up core infrastructure for configuration and data persistence
 
-**Status:** In Progress
+**Status:** Complete ✅
 
 **Success Criteria:**
 
-- [ ] Config system loads TOML files with defaults
-- [ ] SQLite database initializes with schema
-- [ ] Filesystem structure created (~/.samedi/)
-- [ ] Repository interfaces defined
-- [ ] `samedi config list` command works
-- [ ] All tests pass
-- [ ] `make check` succeeds
+- [x] Config system loads TOML files with defaults
+- [x] SQLite database initializes with schema
+- [x] Filesystem structure created (~/.samedi/)
+- [x] Repository interfaces defined
+- [x] `samedi config list` command works
+- [x] All tests pass
+- [x] `make check` succeeds
 
 **Deliverables:**
 
 ### 1.1 Configuration System
 
-- [ ] `internal/config/config.go` - Config struct and defaults
-- [ ] `internal/config/loader.go` - TOML loading with Viper
-- [ ] `internal/config/validator.go` - Validation logic
-- [ ] `internal/config/config_test.go` - Unit tests
+- [x] `internal/config/config.go` - Config struct and defaults
+- [x] `internal/config/loader.go` - TOML loading with Viper
+- [x] `internal/config/validator.go` - Validation logic
+- [x] `internal/config/config_test.go` - Unit tests
 
 ### 1.2 SQLite Storage
 
-- [ ] `internal/storage/sqlite.go` - SQLite connection and operations
-- [ ] `internal/storage/migrations/001_initial_schema.sql` - Initial schema
-- [ ] `internal/storage/migrator.go` - Migration runner
-- [ ] `internal/storage/sqlite_test.go` - Database tests
+- [x] `internal/storage/sqlite.go` - SQLite connection and operations
+- [x] `internal/storage/migrations/001_initial_schema.sql` - Initial schema
+- [x] `internal/storage/migrator.go` - Migration runner
+- [x] `internal/storage/sqlite_test.go` - Database tests
 
 ### 1.3 Filesystem Storage
 
-- [ ] `internal/storage/filesystem.go` - File operations
-- [ ] `internal/storage/paths.go` - Path management
-- [ ] `internal/storage/filesystem_test.go` - Filesystem tests
+- [x] `internal/storage/filesystem.go` - File operations
+- [x] `internal/storage/paths.go` - Path management
+- [x] `internal/storage/filesystem_test.go` - Filesystem tests
 
 ### 1.4 Repository Interfaces
 
-- [ ] `internal/storage/repository.go` - Repository interfaces
-- [ ] Mock implementations for testing
+- [x] `internal/storage/repository.go` - Repository interfaces
+- [x] Mock implementations for testing
 
 ### 1.5 CLI Integration
 
-- [ ] `internal/cli/root.go` - Root Cobra command
-- [ ] `internal/cli/config.go` - Config subcommands
-- [ ] Update `cmd/samedi/main.go` to use Cobra
+- [x] `internal/cli/root.go` - Root Cobra command
+- [x] `internal/cli/config.go` - Config subcommands
+- [x] Update `cmd/samedi/main.go` to use Cobra
 
 **Tests:**
 
@@ -352,13 +352,63 @@ Before marking a stage complete:
 
 ---
 
+## Stage 1 Follow-Up Improvements
+
+**Priority:** Low - Nice-to-have enhancements for future iterations
+
+### 1. Enhanced Config Validation
+
+- [ ] Check if LLM CLI command exists in PATH
+- [ ] Verify data directory is writable before accepting config
+- [ ] Validate timezone string format (e.g., "America/Los_Angeles")
+- [ ] Check backup directory permissions when backup is enabled
+
+**Rationale:** Catch configuration errors early rather than at runtime
+
+### 2. Improved Error Messages
+
+- [ ] Add actionable suggestions to error messages
+- [ ] Example: "invalid LLM provider" → suggest correct command to fix
+
+**Rationale:** Better UX per NFR-006 (actionable error messages)
+
+### 3. Config Set Validation Timing
+
+- [ ] Move validation from `Save()` to `setConfigValue()` for immediate feedback
+
+**Rationale:** User shouldn't see "success" message if value will fail validation
+
+### 4. Integration Tests for Config CLI
+
+- [ ] Test `samedi config list` output formatting
+- [ ] Test `samedi config list --json` produces valid JSON
+- [ ] Test `samedi config edit` opens $EDITOR correctly
+
+**Rationale:** Increase confidence in CLI command wiring
+
+### 5. Test Coverage Analysis
+
+- [ ] Run coverage report and document current percentage
+- [ ] Add tests to reach >80% coverage goal
+
+**Rationale:** Meet Definition of Done requirement
+
+---
+
 ## Progress Log
 
 ### 2025-10-06
 
 - Created implementation plan
 - Started Stage 1: Foundation
-- Created todo list for Stage 1 tasks
+- Completed Stage 1 deliverables:
+  - Configuration system (config, loader, validator, tests)
+  - SQLite storage with migrations
+  - Filesystem storage (paths, operations, tests)
+  - Repository interfaces with mocks
+  - Cobra CLI integration with config subcommands
+- All Stage 1 success criteria met
+- Documented 5 follow-up improvements for future iteration
 
 ---
 
