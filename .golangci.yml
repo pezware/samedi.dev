@@ -8,19 +8,6 @@ run:
   # Include test files
   tests: true
 
-  # Which dirs to skip
-  skip-dirs:
-    - vendor
-    - third_party
-    - testdata
-    - examples
-    - bin
-
-  # Which files to skip
-  skip-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.gen\\.go$"
-
 linters:
   # Enable specific linters
   enable:
@@ -46,7 +33,7 @@ linters:
     - godox         # Detect FIXME, TODO and other comment keywords
     - gosec         # Inspect source code for security problems
     - prealloc      # Find slice declarations that could potentially be pre-allocated
-    - exportloopref # Check for exported loop variables
+    - copyloopvar   # Check for loop variable issues (replaces exportloopref)
     - nilerr        # Find code that returns nil even if it checks that the error is not nil
     - errorlint     # Find code that will cause problems with the error wrapping scheme
     - dupl          # Code clone detection
@@ -56,7 +43,7 @@ linters:
     - exhaustive    # Check exhaustiveness of enum switch statements (too strict)
     - funlen        # Detect long functions (we'll use gocyclo instead)
     - lll           # Report long lines (let formatter handle it)
-    - gomnd         # Detect magic numbers (too noisy)
+    - mnd           # Detect magic numbers (renamed from gomnd, too noisy)
 
 linters-settings:
   # Errcheck settings
@@ -162,6 +149,19 @@ issues:
   # Maximum count of issues with the same text
   max-same-issues: 3
 
+  # Exclude directories
+  exclude-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - bin
+
+  # Exclude files
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
   # Exclude known issues
   exclude-rules:
     # Exclude some linters from running on tests files
@@ -195,8 +195,9 @@ issues:
   fix: true
 
 output:
-  # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
-  format: colored-line-number
+  # Formats: colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
+  formats:
+    - format: colored-line-number
 
   # Print lines of code with issue
   print-issued-lines: true

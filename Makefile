@@ -118,17 +118,33 @@ install:
 	$(GO) install $(MAIN_PATH)
 	@echo "✓ Installed to $(shell go env GOPATH)/bin/$(BINARY_NAME)"
 
-## install-tools: Install development tools
+## install-tools: Install development tools at pinned versions
 install-tools:
 	@echo "Installing development tools..."
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	$(GO) install golang.org/x/tools/cmd/goimports@latest
-	$(GO) install github.com/securego/gosec/v2/cmd/gosec@latest
-	$(GO) install github.com/kisielk/errcheck@latest
-	pip install pre-commit
+	@echo "→ Installing Go tools..."
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	$(GO) install golang.org/x/tools/cmd/goimports@v0.29.0
+	$(GO) install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+	$(GO) install gotest.tools/gotestsum@v1.12.0
+	$(GO) install golang.org/x/vuln/cmd/govulncheck@latest
+	$(GO) install github.com/air-verse/air@latest
+	@echo "→ Installing pre-commit hooks..."
+	@command -v pre-commit >/dev/null 2>&1 || { \
+		echo "Installing pre-commit via pip..."; \
+		pip3 install pre-commit || pip install pre-commit; \
+	}
 	pre-commit install
 	pre-commit install --hook-type commit-msg
-	@echo "✓ Development tools installed"
+	@echo "✓ All development tools installed"
+	@echo ""
+	@echo "Installed tools:"
+	@echo "  golangci-lint v1.64.8   - Linter"
+	@echo "  goimports       v0.29.0 - Import formatter"
+	@echo "  gosec           v2.21.4 - Security scanner"
+	@echo "  gotestsum       v1.12.0 - Better test output"
+	@echo "  govulncheck     latest  - Vulnerability scanner"
+	@echo "  air             latest  - Hot reload"
+	@echo "  pre-commit      latest  - Git hooks"
 
 ## deps: Download and tidy dependencies
 deps:
@@ -153,6 +169,16 @@ security:
 	@echo "Running security checks..."
 	gosec -quiet ./...
 	@echo "✓ Security checks passed"
+
+## vuln: Check for vulnerable dependencies
+vuln:
+	@echo "Checking for vulnerable dependencies..."
+	@command -v govulncheck >/dev/null 2>&1 || { \
+		echo "govulncheck not found. Installing..."; \
+		$(GO) install golang.org/x/vuln/cmd/govulncheck@latest; \
+	}
+	govulncheck ./...
+	@echo "✓ No vulnerabilities found"
 
 ## todo: List TODO comments
 todo:
@@ -220,7 +246,7 @@ dev: fmt test
 	@echo "✓ Development check passed"
 
 ## ci: Run full CI pipeline locally
-ci: deps check test-all coverage security
+ci: deps check test-all coverage security vuln
 	@echo "✓ CI pipeline passed"
 
 ## quick: Quick build and run

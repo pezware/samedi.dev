@@ -206,6 +206,7 @@ Every commit must:
 ## Documentation
 
 - **Development Guide**: [CLAUDE.md](./CLAUDE.md) - **READ THIS FIRST**
+- **Go Ecosystem Guide**: [docs/GO_ECOSYSTEM.md](./docs/GO_ECOSYSTEM.md) - Go tooling and workflow
 - **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md)
 - **Security Policy**: [SECURITY.md](./SECURITY.md)
 - **Architecture**: [docs/04-architecture.md](./docs/04-architecture.md)
