@@ -28,6 +28,7 @@
 - ✅ Add sensitive file patterns to `.gitignore`
 - ✅ Use `.env.example` with placeholder values
 - ✅ Run `detect-secrets` before committing (pre-commit hook does this)
+- ✅ add a new branch if in main branch
 
 **If you accidentally commit a secret:**
 
