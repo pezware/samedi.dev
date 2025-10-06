@@ -65,12 +65,22 @@ import (
 
 ### 1. Version Management
 
-**`.tool-versions`** (already updated by user)
+**Two files for Go version:**
+
+**`.tool-versions`** (for local development with asdf)
 ```
 golang 1.25.1
 ```
 
-This file is used by `asdf` to automatically switch Go versions per project.
+**`.go-version`** (for GitHub Actions)
+```
+1.25.1
+```
+
+**Why two files?**
+- `asdf` uses `.tool-versions` format: `<tool> <version>`
+- `actions/setup-go` expects just the version number
+- Both files ensure local and CI use the same Go version (1.25.1)
 
 ### 2. Makefile Updates
 
@@ -119,15 +129,15 @@ Team should run `make install-tools` together after Go version upgrades to ensur
 - name: Set up Go
   uses: actions/setup-go@v5
   with:
-    go-version-file: '.tool-versions'
+    go-version-file: '.go-version'
     cache: true
 ```
 
 **Benefits:**
-- ✅ Single source of truth (`.tool-versions`)
 - ✅ No hardcoded versions in CI
-- ✅ Local and CI always use same Go version
-- ✅ Automatically updates when `.tool-versions` changes
+- ✅ Local and CI use same Go version (1.25.1)
+- ✅ `.go-version` automatically read by actions/setup-go
+- ✅ `.tool-versions` used by asdf locally
 
 Also removed the Go version matrix (`go: ['1.21', '1.22']`) since we now use a single version from `.tool-versions`.
 
@@ -255,12 +265,21 @@ make fmt
 ### Problem: CI fails with different Go version
 
 ```bash
-# Verify .tool-versions is committed
-git status .tool-versions
+# Verify both version files are committed
+git status .tool-versions .go-version
 
-# Should show:
-# On branch main
-# nothing to commit, working tree clean
+# Both should be committed
+```
+
+### Problem: GitHub Actions can't find Go 1.25.1
+
+```bash
+# Error: Unable to find Go version 'golang 1.25.1'
+# This happens if CI uses .tool-versions instead of .go-version
+
+# Fix: Ensure CI workflow uses .go-version
+grep "go-version-file" .github/workflows/ci.yml
+# Should show: go-version-file: '.go-version'
 ```
 
 ### Problem: Team has inconsistent tool versions
@@ -276,16 +295,18 @@ make version
 ## Summary
 
 **What changed:**
-1. ✅ `.tool-versions` → go 1.25.1 (user updated)
-2. ✅ Makefile → use `@latest` for all tools
-3. ✅ CI workflow → read Go version from `.tool-versions`
-4. ✅ `tools/tools.go` → fixed import ordering and formatting
-5. ✅ `go.mod`/`go.sum` → added tool dependencies
+1. ✅ `.tool-versions` → golang 1.25.1 (for asdf local)
+2. ✅ `.go-version` → 1.25.1 (for GitHub Actions)
+3. ✅ Makefile → use `@latest` for most tools, pinned golangci-lint v1.64.8
+4. ✅ CI workflow → read Go version from `.go-version`
+5. ✅ `tools/tools.go` → fixed import ordering and formatting
+6. ✅ `go.mod`/`go.sum` → added tool dependencies
 
 **What to remember:**
 - `make install-tools` installs tools compatible with current Go version
-- `.tool-versions` is the single source of truth for Go version
-- CI automatically uses the Go version from `.tool-versions`
+- `.tool-versions` for local (asdf), `.go-version` for CI (GitHub Actions)
+- Keep both files in sync when upgrading Go
+- CI automatically uses the Go version from `.go-version`
 - Run `gofmt -s -w .` before committing to fix formatting
 
 **Next steps:**
@@ -297,6 +318,6 @@ make install-tools
 make ci
 
 # Commit changes
-git add .github/workflows/ci.yml Makefile go.mod go.sum tools/tools.go
+git add .go-version .github/workflows/ci.yml Makefile go.mod go.sum tools/tools.go
 git commit -m "fix: update tooling for Go 1.25.1 compatibility"
 ```

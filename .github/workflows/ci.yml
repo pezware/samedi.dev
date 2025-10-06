@@ -23,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: '.tool-versions'
+          go-version-file: '.go-version'
           cache: true
 
       - name: Run golangci-lint
@@ -57,7 +57,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: '.tool-versions'
+          go-version-file: '.go-version'
           cache: true
 
       - name: Download dependencies
@@ -85,7 +85,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: '.tool-versions'
+          go-version-file: '.go-version'
           cache: true
 
       - name: Run integration tests
@@ -102,7 +102,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: '.tool-versions'
+          go-version-file: '.go-version'
           cache: true
 
       - name: Run Gosec Security Scanner
@@ -129,7 +129,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: '.tool-versions'
+          go-version-file: '.go-version'
           cache: true
 
       - name: Build binary
