@@ -1,0 +1,208 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  # Timeout for analysis
+  timeout: 5m
+
+  # Include test files
+  tests: true
+
+  # Which dirs to skip
+  skip-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - examples
+    - bin
+
+  # Which files to skip
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+
+linters:
+  # Enable specific linters
+  enable:
+    # Enabled by default
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Staticcheck is go vet on steroids
+    - typecheck     # Parse and type-check Go code
+    - unused        # Check for unused constants, variables, functions and types
+
+    # Additional recommended linters
+    - gofmt         # Check whether code was gofmt-ed
+    - goimports     # Check import statements are formatted according to goimports
+    - misspell      # Find commonly misspelled English words
+    - revive        # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Report unused function parameters
+    - gocyclo       # Computes cyclomatic complexity
+    - goconst       # Find repeated strings that could be constants
+    - gocritic      # Opinionated Go linter
+    - godox         # Detect FIXME, TODO and other comment keywords
+    - gosec         # Inspect source code for security problems
+    - prealloc      # Find slice declarations that could potentially be pre-allocated
+    - exportloopref # Check for exported loop variables
+    - nilerr        # Find code that returns nil even if it checks that the error is not nil
+    - errorlint     # Find code that will cause problems with the error wrapping scheme
+    - dupl          # Code clone detection
+
+  # Disable specific linters
+  disable:
+    - exhaustive    # Check exhaustiveness of enum switch statements (too strict)
+    - funlen        # Detect long functions (we'll use gocyclo instead)
+    - lll           # Report long lines (let formatter handle it)
+    - gomnd         # Detect magic numbers (too noisy)
+
+linters-settings:
+  # Errcheck settings
+  errcheck:
+    # Report about not checking of errors in type assertions: `a := b.(MyStruct)`
+    check-type-assertions: true
+    # Report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`
+    check-blank: true
+
+  # Gocyclo settings
+  gocyclo:
+    # Minimal cyclomatic complexity to report
+    min-complexity: 15
+
+  # Goconst settings
+  goconst:
+    # Minimal length of string constant
+    min-len: 3
+    # Minimum occurrences of constant string count to trigger issue
+    min-occurrences: 3
+
+  # Gocritic settings
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+      - opinionated
+    disabled-checks:
+      - whyNoLint
+      - unnamedResult
+
+  # Gofmt settings
+  gofmt:
+    # Simplify code
+    simplify: true
+
+  # Revive settings
+  revive:
+    # Minimal confidence for issues, default is 0.8
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  # Gosec settings
+  gosec:
+    # Exclude specific rules (none for now)
+    excludes: []
+
+  # Misspell settings
+  misspell:
+    locale: US
+
+  # Dupl settings
+  dupl:
+    # Tokens count to trigger issue
+    threshold: 150
+
+  # Godox settings
+  godox:
+    # Report any comments starting with keywords
+    keywords:
+      - FIXME
+      - BUG
+      - HACK
+      # TODO is allowed if it has an issue number: TODO(#123)
+
+  # Prealloc settings
+  prealloc:
+    # Report preallocation suggestions only on simple loops that have no returns/breaks/continues/gotos in them
+    simple: true
+    range-loops: true
+    for-loops: false
+
+issues:
+  # Maximum issues count per one linter
+  max-issues-per-linter: 50
+
+  # Maximum count of issues with the same text
+  max-same-issues: 3
+
+  # Exclude known issues
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - goconst
+
+    # Exclude godox for docs and examples
+    - path: (docs|examples)/.*\.go
+      linters:
+        - godox
+
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+
+    # Exclude lll issues for long lines with go:generate
+    - linters:
+        - lll
+      source: "^//go:generate "
+
+  # Show only new issues
+  new: false
+
+  # Fix found issues (if supported by the linter)
+  fix: true
+
+output:
+  # Format: colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
+  format: colored-line-number
+
+  # Print lines of code with issue
+  print-issued-lines: true
+
+  # Print linter name in the end of issue text
+  print-linter-name: true
+
+  # Sort results by: filepath, line and column
+  sort-results: true
