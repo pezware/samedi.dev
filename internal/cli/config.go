@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/pezware/samedi.dev/internal/config"
 	"github.com/spf13/cobra"
@@ -172,63 +173,110 @@ func configInitCmd() *cobra.Command {
 	}
 }
 
-// getConfigValue retrieves a nested config value by dot-notation key
-func getConfigValue(cfg *config.Config, key string) interface{} {
-	// Map of config keys to values
-	configMap := map[string]interface{}{
-		"user.email":                     cfg.User.Email,
-		"user.username":                  cfg.User.Username,
-		"user.timezone":                  cfg.User.Timezone,
-		"llm.provider":                   cfg.LLM.Provider,
-		"llm.cli_command":                cfg.LLM.CLICommand,
-		"llm.default_model":              cfg.LLM.DefaultModel,
-		"llm.timeout_seconds":            cfg.LLM.TimeoutSeconds,
-		"storage.data_dir":               cfg.Storage.DataDir,
-		"storage.backup_enabled":         cfg.Storage.BackupEnabled,
-		"storage.backup_dir":             cfg.Storage.BackupDir,
-		"storage.auto_backup_days":       cfg.Storage.AutoBackupDays,
-		"tui.theme":                      cfg.TUI.Theme,
-		"tui.date_format":                cfg.TUI.DateFormat,
-		"tui.time_format":                cfg.TUI.TimeFormat,
-		"learning.default_chunk_minutes": cfg.Learning.DefaultChunkMinutes,
-		"learning.reminder_enabled":      cfg.Learning.ReminderEnabled,
-		"learning.streak_tracking":       cfg.Learning.StreakTracking,
-	}
-
-	value, ok := configMap[key]
-	if !ok {
-		return nil
-	}
-	return value
+var configValueResolvers = map[string]func(*config.Config) interface{}{
+	"user.email":                     func(cfg *config.Config) interface{} { return cfg.User.Email },
+	"user.username":                  func(cfg *config.Config) interface{} { return cfg.User.Username },
+	"user.timezone":                  func(cfg *config.Config) interface{} { return cfg.User.Timezone },
+	"llm.provider":                   func(cfg *config.Config) interface{} { return cfg.LLM.Provider },
+	"llm.cli_command":                func(cfg *config.Config) interface{} { return cfg.LLM.CLICommand },
+	"llm.default_model":              func(cfg *config.Config) interface{} { return cfg.LLM.DefaultModel },
+	"llm.timeout_seconds":            func(cfg *config.Config) interface{} { return cfg.LLM.TimeoutSeconds },
+	"storage.data_dir":               func(cfg *config.Config) interface{} { return cfg.Storage.DataDir },
+	"storage.backup_enabled":         func(cfg *config.Config) interface{} { return cfg.Storage.BackupEnabled },
+	"storage.backup_dir":             func(cfg *config.Config) interface{} { return cfg.Storage.BackupDir },
+	"storage.auto_backup_days":       func(cfg *config.Config) interface{} { return cfg.Storage.AutoBackupDays },
+	"sync.enabled":                   func(cfg *config.Config) interface{} { return cfg.Sync.Enabled },
+	"sync.cloudflare_endpoint":       func(cfg *config.Config) interface{} { return cfg.Sync.CloudflareEndpoint },
+	"sync.sync_interval_minutes":     func(cfg *config.Config) interface{} { return cfg.Sync.SyncIntervalMinutes },
+	"tui.theme":                      func(cfg *config.Config) interface{} { return cfg.TUI.Theme },
+	"tui.date_format":                func(cfg *config.Config) interface{} { return cfg.TUI.DateFormat },
+	"tui.time_format":                func(cfg *config.Config) interface{} { return cfg.TUI.TimeFormat },
+	"tui.first_day_of_week":          func(cfg *config.Config) interface{} { return cfg.TUI.FirstDayOfWeek },
+	"learning.default_chunk_minutes": func(cfg *config.Config) interface{} { return cfg.Learning.DefaultChunkMinutes },
+	"learning.reminder_enabled":      func(cfg *config.Config) interface{} { return cfg.Learning.ReminderEnabled },
+	"learning.reminder_message":      func(cfg *config.Config) interface{} { return cfg.Learning.ReminderMessage },
+	"learning.streak_tracking":       func(cfg *config.Config) interface{} { return cfg.Learning.StreakTracking },
 }
 
-// setConfigValue sets a nested config value by dot-notation key
-func setConfigValue(cfg *config.Config, key, value string) error {
-	switch key {
-	case "user.email":
-		cfg.User.Email = value
-	case "user.username":
-		cfg.User.Username = value
-	case "user.timezone":
-		cfg.User.Timezone = value
-	case "llm.provider":
-		cfg.LLM.Provider = value
-	case "llm.cli_command":
-		cfg.LLM.CLICommand = value
-	case "llm.default_model":
-		cfg.LLM.DefaultModel = value
-	case "storage.data_dir":
-		cfg.Storage.DataDir = value
-	case "storage.backup_dir":
-		cfg.Storage.BackupDir = value
-	case "tui.theme":
-		cfg.TUI.Theme = value
-	case "tui.date_format":
-		cfg.TUI.DateFormat = value
-	case "tui.time_format":
-		cfg.TUI.TimeFormat = value
-	default:
-		return fmt.Errorf("unknown config key: %s", key)
+// getConfigValue retrieves a nested config value by dot-notation key.
+func getConfigValue(cfg *config.Config, key string) interface{} {
+	if resolver, ok := configValueResolvers[key]; ok {
+		return resolver(cfg)
 	}
 	return nil
+}
+
+var stringConfigSetters = map[string]func(*config.Config, string){
+	"user.email":                func(cfg *config.Config, value string) { cfg.User.Email = value },
+	"user.username":             func(cfg *config.Config, value string) { cfg.User.Username = value },
+	"user.timezone":             func(cfg *config.Config, value string) { cfg.User.Timezone = value },
+	"llm.provider":              func(cfg *config.Config, value string) { cfg.LLM.Provider = value },
+	"llm.cli_command":           func(cfg *config.Config, value string) { cfg.LLM.CLICommand = value },
+	"llm.default_model":         func(cfg *config.Config, value string) { cfg.LLM.DefaultModel = value },
+	"storage.data_dir":          func(cfg *config.Config, value string) { cfg.Storage.DataDir = value },
+	"storage.backup_dir":        func(cfg *config.Config, value string) { cfg.Storage.BackupDir = value },
+	"sync.cloudflare_endpoint":  func(cfg *config.Config, value string) { cfg.Sync.CloudflareEndpoint = value },
+	"tui.theme":                 func(cfg *config.Config, value string) { cfg.TUI.Theme = value },
+	"tui.date_format":           func(cfg *config.Config, value string) { cfg.TUI.DateFormat = value },
+	"tui.time_format":           func(cfg *config.Config, value string) { cfg.TUI.TimeFormat = value },
+	"tui.first_day_of_week":     func(cfg *config.Config, value string) { cfg.TUI.FirstDayOfWeek = value },
+	"learning.reminder_message": func(cfg *config.Config, value string) { cfg.Learning.ReminderMessage = value },
+}
+
+var intConfigSetters = map[string]func(*config.Config, int){
+	"llm.timeout_seconds":            func(cfg *config.Config, value int) { cfg.LLM.TimeoutSeconds = value },
+	"storage.auto_backup_days":       func(cfg *config.Config, value int) { cfg.Storage.AutoBackupDays = value },
+	"sync.sync_interval_minutes":     func(cfg *config.Config, value int) { cfg.Sync.SyncIntervalMinutes = value },
+	"learning.default_chunk_minutes": func(cfg *config.Config, value int) { cfg.Learning.DefaultChunkMinutes = value },
+}
+
+var boolConfigSetters = map[string]func(*config.Config, bool){
+	"storage.backup_enabled":    func(cfg *config.Config, value bool) { cfg.Storage.BackupEnabled = value },
+	"sync.enabled":              func(cfg *config.Config, value bool) { cfg.Sync.Enabled = value },
+	"learning.reminder_enabled": func(cfg *config.Config, value bool) { cfg.Learning.ReminderEnabled = value },
+	"learning.streak_tracking":  func(cfg *config.Config, value bool) { cfg.Learning.StreakTracking = value },
+}
+
+// setConfigValue sets a nested config value by dot-notation key.
+func setConfigValue(cfg *config.Config, key, value string) error {
+	if setter, ok := stringConfigSetters[key]; ok {
+		setter(cfg, value)
+		return nil
+	}
+
+	if setter, ok := intConfigSetters[key]; ok {
+		parsed, err := parseInt(value, key)
+		if err != nil {
+			return err
+		}
+		setter(cfg, parsed)
+		return nil
+	}
+
+	if setter, ok := boolConfigSetters[key]; ok {
+		parsed, err := parseBool(value, key)
+		if err != nil {
+			return err
+		}
+		setter(cfg, parsed)
+		return nil
+	}
+
+	return fmt.Errorf("unknown config key: %s", key)
+}
+
+func parseBool(value, key string) (bool, error) {
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("invalid boolean for %s: %w", key, err)
+	}
+	return parsed, nil
+}
+
+func parseInt(value, key string) (int, error) {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid integer for %s: %w", key, err)
+	}
+	return parsed, nil
 }
