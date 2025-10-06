@@ -540,7 +540,7 @@ Uses in resume/LinkedIn:
 ...
 ```
 
-## Journey 6: Team Learning (Future - Phase 3)
+## Journey 6: Team Learning (WONTDO - Phase 3)
 
 ### Shared Plan (Engineering Team)
 

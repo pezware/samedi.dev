@@ -4,11 +4,13 @@
 package main
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/pezware/samedi.dev/internal/cli"
 )
 
 // Version information (set via ldflags during build)
+// These are passed to the CLI package for display
 var (
 	Version   = "dev"
 	Commit    = "none"
@@ -16,11 +18,13 @@ var (
 )
 
 func main() {
-	// TODO(#1): Implement CLI with cobra
-	// For now, just show version info
-	fmt.Printf("samedi version %s (commit: %s, built: %s)\n", Version, Commit, BuildDate)
-	fmt.Println("\nA learning operating system for the terminal.")
-	fmt.Println("\nRun 'samedi --help' for usage information.")
+	// Set version information in CLI package
+	cli.Version = Version
+	cli.Commit = Commit
+	cli.BuildDate = BuildDate
 
-	os.Exit(0)
+	// Execute CLI
+	if err := cli.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
