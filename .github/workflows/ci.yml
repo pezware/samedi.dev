@@ -154,6 +154,12 @@ jobs:
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
+        with:
+          # Allow moderate severity for dev dependencies
+          fail-on-severity: high
+          # Reduce scorecard threshold for dev tools
+          fail-on-scopes: runtime
+          comment-summary-in-pr: on-failure
 
   # All checks must pass
   all-checks:

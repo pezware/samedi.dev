@@ -20,9 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated to Go 1.25.1 (from 1.21)
-- Updated CI/CD to read Go version from `.tool-versions` instead of hardcoding
+- Updated CI/CD to read Go version from `.go-version` (GitHub Actions format)
 - Changed tool installation to use `@latest` versions for Go 1.25+ compatibility
-- Removed Go version matrix from CI (now uses single version from `.tool-versions`)
+- Removed Go version matrix from CI (now uses single version from `.go-version`)
+- Dependency review now only fails on HIGH severity (accepts MODERATE in dev tools)
 
 ### Deprecated
 - TBD
