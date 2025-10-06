@@ -1,0 +1,24 @@
+# Code Owners for Samedi
+# These owners will be automatically requested for review when someone opens a pull request.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @arbeitandy
+
+# Documentation
+/docs/ @arbeitandy
+*.md @arbeitandy
+
+# Core application code
+/cmd/ @arbeitandy
+/internal/ @arbeitandy
+/pkg/ @arbeitandy
+
+# CI/CD and tooling
+/.github/ @arbeitandy
+/Makefile @arbeitandy
+/.golangci.yml @arbeitandy
+/.pre-commit-config.yaml @arbeitandy
+
+# Security-sensitive files
+/docs/10-security-privacy.md @arbeitandy
