@@ -23,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: '.tool-versions'
           cache: true
 
       - name: Run golangci-lint
@@ -50,7 +50,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go: ['1.21', '1.22']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,7 +57,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go }}
+          go-version-file: '.tool-versions'
           cache: true
 
       - name: Download dependencies
@@ -68,7 +67,7 @@ jobs:
         run: go test -short -race -timeout=5m -coverprofile=coverage.out ./...
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.go == '1.21'
+        if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.out
@@ -86,7 +85,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: '.tool-versions'
           cache: true
 
       - name: Run integration tests
@@ -103,7 +102,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: '.tool-versions'
           cache: true
 
       - name: Run Gosec Security Scanner
@@ -130,7 +129,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: '.tool-versions'
           cache: true
 
       - name: Build binary

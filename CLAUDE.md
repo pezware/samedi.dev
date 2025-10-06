@@ -13,6 +13,7 @@
 ## ⚠️ CRITICAL: Security Rules
 
 **NEVER commit to the repository:**
+
 - ❌ Passwords or passphrases
 - ❌ API keys or tokens (OpenAI, Anthropic, etc.)
 - ❌ Private keys or certificates
@@ -21,6 +22,7 @@
 - ❌ Any `.env` files with real credentials
 
 **ALWAYS:**
+
 - ✅ Use environment variables for secrets
 - ✅ Reference env vars in config files (e.g., `api_key_env = "OPENAI_API_KEY"`)
 - ✅ Add sensitive file patterns to `.gitignore`
@@ -28,6 +30,7 @@
 - ✅ Run `detect-secrets` before committing (pre-commit hook does this)
 
 **If you accidentally commit a secret:**
+
 1. **DO NOT** just delete it in a new commit (it's still in history!)
 2. **Immediately** rotate/revoke the credential
 3. Use `git filter-branch` or BFG Repo-Cleaner to remove from history
@@ -58,6 +61,7 @@
 ### 3. Quality Gates
 
 Every commit must:
+
 - ✅ Pass `go test ./...`
 - ✅ Pass `golangci-lint run`
 - ✅ Pass `go vet ./...`
@@ -80,6 +84,7 @@ package yourpackage
 Template available in `.license-header.txt`.
 
 **Why?**
+
 - Clarifies copyright and licensing
 - SPDX identifier enables automated license scanning
 - Industry standard for open source projects
@@ -89,6 +94,7 @@ Template available in `.license-header.txt`.
 Follow [Uber's Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md) with these additions:
 
 **Package Organization**:
+
 ```go
 // internal/plan/manager.go
 package plan
@@ -105,6 +111,7 @@ import (
 ```
 
 **Error Handling**:
+
 ```go
 // ✅ Good: Wrap errors with context
 if err != nil {
@@ -118,6 +125,7 @@ if err != nil {
 ```
 
 **Function Documentation**:
+
 ```go
 // CreatePlan generates a new learning plan using the configured LLM.
 // It validates the topic, calls the LLM provider, and saves the result
@@ -133,6 +141,7 @@ func CreatePlan(ctx context.Context, topic string, hours int) (*Plan, error) {
 ```
 
 **Struct Documentation**:
+
 ```go
 // Plan represents a learning curriculum broken into time-boxed chunks.
 type Plan struct {
@@ -145,6 +154,7 @@ type Plan struct {
 ```
 
 **When to Document**:
+
 - ✅ Public functions/types (exported)
 - ✅ Complex algorithms (e.g., SM-2)
 - ✅ Non-obvious decisions (why, not what)
@@ -154,6 +164,7 @@ type Plan struct {
 ### Testing Standards
 
 **Test Organization**:
+
 ```
 internal/plan/
 ├── manager.go
@@ -166,6 +177,7 @@ internal/plan/
 ```
 
 **Test Naming**:
+
 ```go
 // Format: Test<Function>_<Scenario>_<ExpectedResult>
 func TestCreatePlan_ValidTopic_ReturnsPlan(t *testing.T) { }
@@ -174,6 +186,7 @@ func TestCreatePlan_LLMFailure_ReturnsError(t *testing.T) { }
 ```
 
 **Table-Driven Tests**:
+
 ```go
 func TestParsePlan(t *testing.T) {
     tests := []struct {
@@ -211,11 +224,13 @@ func TestParsePlan(t *testing.T) {
 ```
 
 **Test Coverage Goals**:
+
 - **Unit tests**: 80%+ coverage for core logic
 - **Integration tests**: Critical paths (plan generation, sync, review)
 - **E2E tests**: Happy path for each command
 
 **What to Test**:
+
 - ✅ Business logic (plan creation, session tracking, SM-2)
 - ✅ Error cases (invalid input, LLM failures)
 - ✅ Edge cases (empty plans, extremely long sessions)
@@ -226,12 +241,14 @@ func TestParsePlan(t *testing.T) {
 ### Commit Messages
 
 **🔒 SECURITY CHECK BEFORE EVERY COMMIT:**
+
 - Review `git diff` - any API keys, passwords, or secrets?
 - Check `.env` files are in `.gitignore`
 - Verify no hardcoded credentials in test files
 - Pre-commit hooks will scan, but **you are the final check**
 
 **Format** (Conventional Commits):
+
 ```
 <type>(<scope>): <subject>
 
@@ -241,6 +258,7 @@ func TestParsePlan(t *testing.T) {
 ```
 
 **Types**:
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation only
@@ -249,6 +267,7 @@ func TestParsePlan(t *testing.T) {
 - `chore`: Build process, dependencies, tooling
 
 **Examples**:
+
 ```
 feat(plan): add LLM-powered plan generation
 
@@ -300,6 +319,7 @@ Install pre-commit framework and configure:
 ```
 
 **Commit Hygiene**:
+
 - One logical change per commit
 - Commits should compile and pass tests
 - Use `git commit --amend` to fix mistakes before pushing
@@ -310,6 +330,7 @@ Install pre-commit framework and configure:
 ### Unit Tests (Standard `testing` + `testify`)
 
 **Setup**:
+
 ```go
 // internal/plan/manager_test.go
 import (
@@ -339,6 +360,7 @@ func TestPlanManager_Create(t *testing.T) {
 ```
 
 **Mocking with testify**:
+
 ```go
 // internal/llm/mock.go (generated or manual)
 type MockLLMProvider struct {
@@ -354,6 +376,7 @@ func (m *MockLLMProvider) Call(prompt string) (string, error) {
 ### Integration Tests (`dockertest` for real dependencies)
 
 **Setup**:
+
 ```go
 // internal/storage/integration_test.go
 // +build integration
@@ -404,6 +427,7 @@ func setupTestDB(t *testing.T) (*sql.DB, func()) {
 ```
 
 **Run integration tests**:
+
 ```bash
 go test -tags=integration ./...
 ```
@@ -411,6 +435,7 @@ go test -tags=integration ./...
 ### E2E Tests (Real CLI execution)
 
 **Setup**:
+
 ```go
 // tests/e2e/plan_test.go
 // +build e2e
@@ -442,6 +467,7 @@ func TestE2E_PlanCreation(t *testing.T) {
 ```
 
 **Run e2e tests**:
+
 ```bash
 go test -tags=e2e ./tests/e2e/...
 ```
@@ -449,6 +475,7 @@ go test -tags=e2e ./tests/e2e/...
 ### Golden Files (Snapshot testing)
 
 **For complex outputs**:
+
 ```go
 // internal/stats/reporter_test.go
 import "github.com/sebdah/goldie/v2"
@@ -465,6 +492,7 @@ func TestReporter_GenerateMarkdown(t *testing.T) {
 ```
 
 **Update golden files**:
+
 ```bash
 go test ./... -update
 ```
@@ -472,6 +500,7 @@ go test ./... -update
 ### Test Helpers
 
 **Common test utilities**:
+
 ```go
 // internal/testutil/fixtures.go
 package testutil
@@ -639,6 +668,7 @@ go install github.com/kisielk/errcheck@latest
 ### Code Documentation
 
 **When to write docs**:
+
 ```go
 // ✅ Good: Public API needs godoc
 // ParsePlan parses a markdown file containing a learning plan.
@@ -658,6 +688,7 @@ func (c *Card) Review(rating int) { ... }
 ### README Updates
 
 Update README when:
+
 - Adding new commands
 - Changing installation steps
 - Adding new configuration options
@@ -665,6 +696,7 @@ Update README when:
 ### Changelog
 
 Update `CHANGELOG.md` on every PR:
+
 ```markdown
 ## [Unreleased]
 
@@ -721,14 +753,14 @@ pre-commit run --all-files
 
 ## Resources
 
-- **Go Style**: https://go.dev/doc/effective_go
-- **Uber Go Guide**: https://github.com/uber-go/guide
-- **Testing Best Practices**: https://go.dev/doc/tutorial/add-a-test
-- **Project Layout**: https://github.com/golang-standards/project-layout
-- **Conventional Commits**: https://www.conventionalcommits.org/
+- **Go Style**: <https://go.dev/doc/effective_go>
+- **Uber Go Guide**: <https://github.com/uber-go/guide>
+- **Testing Best Practices**: <https://go.dev/doc/tutorial/add-a-test>
+- **Project Layout**: <https://github.com/golang-standards/project-layout>
+- **Conventional Commits**: <https://www.conventionalcommits.org/>
 
 ## Questions?
 
-- Check existing issues: https://github.com/pezware/samedi.dev/issues
-- Ask in discussions: https://github.com/pezware/samedi.dev/discussions
+- Check existing issues: <https://github.com/pezware/samedi.dev/issues>
+- Ask in discussions: <https://github.com/pezware/samedi.dev/discussions>
 - Read the specs: `docs/*.md`

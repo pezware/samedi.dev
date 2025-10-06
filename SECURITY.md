@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in Samedi, please report it by emailing:
 
-**security@pezware.com** (or contact @arbeitandy directly)
+**<security@pezware.com>** (or contact @arbeitandy directly)
 
 Please do **NOT** open a public issue for security vulnerabilities.
 
@@ -26,6 +26,7 @@ Please do **NOT** open a public issue for security vulnerabilities.
 ### For Contributors
 
 **NEVER commit:**
+
 - ❌ Passwords or passphrases
 - ❌ API keys (OpenAI, Anthropic, Cloudflare, etc.)
 - ❌ Private keys or certificates
@@ -34,6 +35,7 @@ Please do **NOT** open a public issue for security vulnerabilities.
 - ❌ Real `.env` files
 
 **ALWAYS:**
+
 - ✅ Use `.env.example` with placeholder values
 - ✅ Reference environment variables in code (never hardcode)
 - ✅ Add sensitive patterns to `.gitignore`
@@ -45,6 +47,7 @@ Please do **NOT** open a public issue for security vulnerabilities.
 1. **STOP** - Don't just delete it in a new commit (it's in git history!)
 2. **Rotate** - Immediately revoke/rotate the compromised credential
 3. **Clean History** - Use BFG Repo-Cleaner or `git filter-branch`
+
    ```bash
    # Using BFG (recommended)
    brew install bfg
@@ -52,6 +55,7 @@ Please do **NOT** open a public issue for security vulnerabilities.
    git reflog expire --expire=now --all
    git gc --prune=now --aggressive
    ```
+
 4. **Force Push** - Coordinate with team before force pushing
 5. **Report** - Contact @arbeitandy immediately
 
@@ -64,6 +68,7 @@ Automated checks that run before every commit:
 - **Pattern matching**: Checks for common secret patterns
 
 To run manually:
+
 ```bash
 pre-commit run detect-secrets --all-files
 ```
@@ -73,11 +78,13 @@ pre-commit run detect-secrets --all-files
 Store secrets in environment variables, never in code:
 
 **❌ Bad:**
+
 ```go
 apiKey := "sk-ant-1234567890abcdef"  // NEVER DO THIS
 ```
 
 **✅ Good:**
+
 ```go
 apiKey := os.Getenv("ANTHROPIC_API_KEY")
 if apiKey == "" {
@@ -86,6 +93,7 @@ if apiKey == "" {
 ```
 
 **✅ Even Better:**
+
 ```toml
 # config.toml
 [llm]
@@ -107,6 +115,7 @@ func TestLLMProvider(t *testing.T) {
 ```
 
 For integration tests that need real credentials:
+
 ```go
 // +build integration
 
@@ -129,11 +138,13 @@ func TestRealAPI(t *testing.T) {
 ## Security Features
 
 ### Local Data Protection
+
 - File permissions: `chmod 600` for sensitive files
 - SQLite encryption: Optional with SQLCipher
 - No plaintext secrets in config
 
 ### Cloud Security (Phase 2)
+
 - TLS 1.2+ for all API calls
 - JWT authentication with 1-hour expiry
 - Row-level security in D1 database
@@ -157,6 +168,6 @@ Automated via GitHub Dependabot and CI/CD pipeline.
 
 ## Contact
 
-- **Security Issues**: security@pezware.com
+- **Security Issues**: <security@pezware.com>
 - **Code Owner**: @arbeitandy
-- **General Issues**: https://github.com/pezware/samedi.dev/issues
+- **General Issues**: <https://github.com/pezware/samedi.dev/issues>

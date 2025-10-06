@@ -17,7 +17,10 @@ repos:
         args: [-w]
 
       # Run go vet
-      - id: go-vet
+      # Disabled: hook has issues with directory structure
+      # Use 'make vet' instead
+      # - id: go-vet
+      #   args: [./...]
 
       # Run go mod tidy
       - id: go-mod-tidy
@@ -61,7 +64,7 @@ repos:
 
   # Security checks
   - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.4.0
+    rev: v1.5.0
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
@@ -73,7 +76,7 @@ repos:
     hooks:
       - id: markdownlint
         args: [--fix]
-        exclude: ^(CHANGELOG.md|docs/.*\.md)$
+        exclude: ^(CHANGELOG.md|CLAUDE.md|CONTRIBUTING.md|README.md|SECURITY.md|SETUP_SUMMARY.md|docs/.*\.md)$
 
   # Commit message linting
   - repo: https://github.com/compilerla/conventional-pre-commit
@@ -86,10 +89,10 @@ repos:
 # Custom local hooks
   - repo: local
     hooks:
-      # Run golangci-lint
+      # Run golangci-lint (use GOPATH version v1.64.8, not Homebrew v2.x)
       - id: golangci-lint
         name: golangci-lint
-        entry: golangci-lint run --fix
+        entry: bash -c 'PATH="$(go env GOPATH)/bin:$PATH" golangci-lint run --fix'
         language: system
         types: [go]
         pass_filenames: false

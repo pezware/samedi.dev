@@ -14,27 +14,32 @@ Thank you for your interest in contributing to Samedi! This document provides gu
 ### Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/pezware/samedi.dev.git
    cd samedi
    ```
 
 2. **Install development tools**
+
    ```bash
    make install-tools
    ```
 
 3. **Install dependencies**
+
    ```bash
    make deps
    ```
 
 4. **Run tests to verify setup**
+
    ```bash
    make test
    ```
 
 5. **Build the binary**
+
    ```bash
    make build
    ```
@@ -46,6 +51,7 @@ Thank you for your interest in contributing to Samedi! This document provides gu
 ### Quick Summary
 
 1. **Create a branch**
+
    ```bash
    git checkout -b feat/your-feature-name
    # or
@@ -53,6 +59,7 @@ Thank you for your interest in contributing to Samedi! This document provides gu
    ```
 
 2. **Write tests first** (TDD approach)
+
    ```bash
    # Create test file
    vim internal/yourmodule/yourfile_test.go
@@ -62,6 +69,7 @@ Thank you for your interest in contributing to Samedi! This document provides gu
    ```
 
 3. **Implement the feature**
+
    ```bash
    vim internal/yourmodule/yourfile.go
 
@@ -70,17 +78,20 @@ Thank you for your interest in contributing to Samedi! This document provides gu
    ```
 
 4. **Run all checks**
+
    ```bash
    make check
    ```
 
 5. **Commit with conventional commit message**
+
    ```bash
    git add .
    git commit -m "feat(module): add awesome feature"
    ```
 
 6. **Push and create PR**
+
    ```bash
    git push origin feat/your-feature-name
    gh pr create
@@ -89,18 +100,21 @@ Thank you for your interest in contributing to Samedi! This document provides gu
 ## Code Standards
 
 ### Go Style
+
 - Follow [Uber's Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
 - Use `gofmt` for formatting
 - Add godoc comments for all exported functions/types
 - See [CLAUDE.md](./CLAUDE.md) for detailed examples
 
 ### Testing
+
 - Write tests for all new code
 - Aim for 80%+ coverage on core logic
 - Use table-driven tests for multiple scenarios
 - See [CLAUDE.md](./CLAUDE.md#testing-standards) for testing guidelines
 
 ### Commit Messages
+
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -112,6 +126,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation only
@@ -120,6 +135,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore`: Build process, dependencies, tooling
 
 **Examples:**
+
 ```
 feat(flashcard): implement SM-2 spaced repetition algorithm
 
@@ -169,24 +185,28 @@ Fixes #89
 ## Types of Contributions
 
 ### Bug Reports
+
 - Use issue template
 - Include minimal reproduction steps
 - Include environment details (OS, Go version, samedi version)
 - Include relevant logs/errors
 
 ### Feature Requests
+
 - Use issue template
 - Describe the problem you're solving
 - Provide use cases and examples
 - Consider creating a design doc for large features
 
 ### Documentation
+
 - Fix typos, improve clarity
 - Add examples and use cases
 - Update outdated information
 - Translate to other languages (future)
 
 ### Code Contributions
+
 - Start with good first issues
 - Discuss major changes in issues first
 - Follow the development workflow above
@@ -240,6 +260,7 @@ make coverage
 See [CLAUDE.md](./CLAUDE.md#testing-standards) for detailed testing guidelines.
 
 **Quick example:**
+
 ```go
 func TestCreatePlan_ValidTopic_ReturnsPlan(t *testing.T) {
     // Arrange
@@ -260,11 +281,13 @@ func TestCreatePlan_ValidTopic_ReturnsPlan(t *testing.T) {
 ## Documentation
 
 ### Code Documentation
+
 - Add godoc comments to all exported functions/types
 - Explain *why*, not *what* for complex logic
 - Include examples in godoc when helpful
 
 ### User Documentation
+
 - Update README.md for user-facing changes
 - Update docs/ for architecture/design changes
 - Add examples to docs/01-user-journeys.md
@@ -285,6 +308,7 @@ By contributing, you agree that your contributions will be licensed under the sa
 ## Recognition
 
 Contributors will be:
+
 - Listed in CONTRIBUTORS.md
 - Mentioned in release notes
 - Invited to the contributors team (after significant contributions)

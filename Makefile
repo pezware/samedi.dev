@@ -8,7 +8,8 @@ BINARY_NAME=samedi
 BUILD_DIR=bin
 COVERAGE_DIR=coverage
 GO=go
-GOLANGCI_LINT=golangci-lint
+GOPATH_BIN=$(shell go env GOPATH)/bin
+GOLANGCI_LINT=$(GOPATH_BIN)/golangci-lint
 MAIN_PATH=./cmd/samedi
 
 # Default target
@@ -118,14 +119,15 @@ install:
 	$(GO) install $(MAIN_PATH)
 	@echo "✓ Installed to $(shell go env GOPATH)/bin/$(BINARY_NAME)"
 
-## install-tools: Install development tools at pinned versions
+## install-tools: Install development tools (compatible with Go 1.25+)
 install-tools:
 	@echo "Installing development tools..."
-	@echo "→ Installing Go tools..."
+	@echo "→ Go version: $(shell $(GO) version)"
+	@echo "→ Installing Go tools to $(GOPATH_BIN)..."
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
-	$(GO) install golang.org/x/tools/cmd/goimports@v0.29.0
-	$(GO) install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
-	$(GO) install gotest.tools/gotestsum@v1.12.0
+	$(GO) install golang.org/x/tools/cmd/goimports@latest
+	$(GO) install github.com/securego/gosec/v2/cmd/gosec@latest
+	$(GO) install gotest.tools/gotestsum@latest
 	$(GO) install golang.org/x/vuln/cmd/govulncheck@latest
 	$(GO) install github.com/air-verse/air@latest
 	@echo "→ Installing pre-commit hooks..."
@@ -137,14 +139,11 @@ install-tools:
 	pre-commit install --hook-type commit-msg
 	@echo "✓ All development tools installed"
 	@echo ""
-	@echo "Installed tools:"
-	@echo "  golangci-lint v1.64.8   - Linter"
-	@echo "  goimports       v0.29.0 - Import formatter"
-	@echo "  gosec           v2.21.4 - Security scanner"
-	@echo "  gotestsum       v1.12.0 - Better test output"
-	@echo "  govulncheck     latest  - Vulnerability scanner"
-	@echo "  air             latest  - Hot reload"
-	@echo "  pre-commit      latest  - Git hooks"
+	@echo "Installed versions:"
+	@echo "  golangci-lint: $(shell $(GOLANGCI_LINT) version 2>/dev/null | head -1 || echo 'not found')"
+	@echo ""
+	@echo "Note: Makefile uses tools from $(GOPATH_BIN)"
+	@echo "Add to PATH: export PATH=\"$(GOPATH_BIN):\$$PATH\""
 
 ## deps: Download and tidy dependencies
 deps:

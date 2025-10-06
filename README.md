@@ -26,6 +26,7 @@ Samedi is a CLI-native tool for tracking and managing your learning journey acro
 > "Samedi doesn't teach. LLMs do. Samedi orchestrates, tracks, and motivates."
 
 Learn anything with the same workflow:
+
 ```bash
 samedi init "rust async programming" --hours 40
 samedi start rust-async chunk-001
@@ -42,16 +43,19 @@ samedi stats   # See your progress
 ### Installation
 
 **Homebrew** (macOS/Linux):
+
 ```bash
 brew install samedi
 ```
 
 **Go Install**:
+
 ```bash
 go install github.com/pezware/samedi.dev/cmd/samedi@latest
 ```
 
 **From Source**:
+
 ```bash
 git clone https://github.com/pezware/samedi.dev.git
 cd samedi.dev
@@ -61,11 +65,13 @@ make install
 ### First Use
 
 1. **Generate a learning plan**:
+
    ```bash
    samedi init "french b1" --hours 50
    ```
 
 2. **Start learning**:
+
    ```bash
    samedi start french-b1 chunk-001
    # ... study for an hour ...
@@ -73,11 +79,13 @@ make install
    ```
 
 3. **Review flashcards**:
+
    ```bash
    samedi review french-b1
    ```
 
 4. **Check your progress**:
+
    ```bash
    samedi stats
    ```
@@ -126,6 +134,7 @@ Full documentation: [docs/](./docs/)
 ## Examples
 
 ### Learning Rust
+
 ```bash
 samedi init "rust async programming" --hours 40
 samedi start rust-async chunk-001
@@ -135,6 +144,7 @@ samedi cards generate rust-async chunk-001  # Extract flashcards
 ```
 
 ### Learning French
+
 ```bash
 samedi init "french b1" --hours 50
 samedi start french-b1 chunk-003
@@ -144,6 +154,7 @@ samedi review french-b1  # Review vocab flashcards
 ```
 
 ### Cross-Domain Learning
+
 ```bash
 samedi plan list
 # rust-async     100%  ✓
@@ -160,6 +171,7 @@ samedi stats --all
 ## Architecture
 
 **Tech Stack**:
+
 - **Language**: Go 1.21+
 - **TUI**: Bubble Tea
 - **CLI**: Cobra
@@ -167,6 +179,7 @@ samedi stats --all
 - **LLM Integration**: Configurable (Claude, Codex, llm, etc.)
 
 **Project Structure**:
+
 ```
 samedi/
 ├── cmd/samedi/           # Main entry point
@@ -219,6 +232,7 @@ MIT License - see [LICENSE](./LICENSE) for details.
 ## Acknowledgments
 
 Built with:
+
 - [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 - [SQLite](https://www.sqlite.org/) - Database

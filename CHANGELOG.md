@@ -19,7 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pinned versions for all development tools in Makefile
 
 ### Changed
-- TBD
+- Updated to Go 1.25.1 (from 1.21)
+- Updated CI/CD to read Go version from `.tool-versions` instead of hardcoding
+- Changed tool installation to use `@latest` versions for Go 1.25+ compatibility
+- Removed Go version matrix from CI (now uses single version from `.tool-versions`)
 
 ### Deprecated
 - TBD
@@ -30,10 +33,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - golangci-lint configuration updated to fix deprecated options and linters
   - Replaced deprecated `run.skip-dirs` and `run.skip-files` with `issues.exclude-dirs` and `issues.exclude-files`
-  - Changed deprecated `output.format` to `output.formats` (array syntax)
   - Replaced deprecated `exportloopref` linter with `copyloopvar` (Go 1.22+ compatible)
   - Replaced deprecated `gomnd` linter with `mnd` (renamed)
+  - Removed `output` section incompatible with v1.64.8
+  - Pinned golangci-lint to v1.64.8 to avoid v2.x breaking changes
   - Resolves CI/CD exit code 7 error from golangci-lint
+  - See docs/GOLANGCI_LINT_V2_ISSUE.md for details
+- Tool installation errors with Go 1.25.1
+  - Fixed incompatible tool versions by using `@latest` for most tools
+  - Pinned golangci-lint to v1.64.8 (v2.x has breaking config changes)
+  - Fixed import ordering in `tools/tools.go` to satisfy gofmt
+  - Updated Makefile to use GOPATH binaries explicitly
+  - See docs/GO_1_25_UPGRADE.md for details
 
 ### Security
 - TBD

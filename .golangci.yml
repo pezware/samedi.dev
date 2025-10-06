@@ -1,5 +1,6 @@
 # golangci-lint configuration
 # https://golangci-lint.run/usage/configuration/
+# Compatible with golangci-lint v1.60+
 
 run:
   # Timeout for analysis
@@ -193,17 +194,3 @@ issues:
 
   # Fix found issues (if supported by the linter)
   fix: true
-
-output:
-  # Formats: colored-line-number|line-number|json|tab|checkstyle|code-climate|junit-xml|github-actions
-  formats:
-    - format: colored-line-number
-
-  # Print lines of code with issue
-  print-issued-lines: true
-
-  # Print linter name in the end of issue text
-  print-linter-name: true
-
-  # Sort results by: filepath, line and column
-  sort-results: true

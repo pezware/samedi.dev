@@ -4,7 +4,7 @@ This document summarizes the development setup for the Samedi project.
 
 ## Repository Information
 
-- **Repository**: https://github.com/pezware/samedi.dev.git
+- **Repository**: <https://github.com/pezware/samedi.dev.git>
 - **Code Owner**: @arbeitandy
 - **License**: MIT
 
@@ -34,6 +34,7 @@ This document summarizes the development setup for the Samedi project.
 1. **LICENSE** - MIT License (2025)
 2. **.license-header.txt** - Template for Go file headers
 3. All Go files should include:
+
    ```go
    // Copyright (c) 2025 Samedi Contributors
    // SPDX-License-Identifier: MIT
@@ -42,6 +43,7 @@ This document summarizes the development setup for the Samedi project.
 ### Development Tools
 
 1. **Makefile** - Common development tasks
+
    ```bash
    make help          # See all commands
    make install-tools # Install dev tools
@@ -76,18 +78,20 @@ This document summarizes the development setup for the Samedi project.
 ### Critical Rules (see CLAUDE.md for full details)
 
 **NEVER commit:**
+
 - Passwords or API keys
 - Private keys or certificates
 - .env files with real credentials
 - Any secrets in code or config
 
 **ALWAYS:**
+
 - Use environment variables for secrets
 - Check `git diff` before committing
 - Use .env.example as template
 - Let pre-commit hooks scan for secrets
 
-### Pre-commit Hooks Will Catch:
+### Pre-commit Hooks Will Catch
 
 ✅ Common secret patterns (API keys, passwords)
 ✅ AWS keys, private keys, JWT tokens
@@ -97,7 +101,7 @@ This document summarizes the development setup for the Samedi project.
 
 **But you are the final line of defense!**
 
-### If You Accidentally Commit a Secret:
+### If You Accidentally Commit a Secret
 
 1. **Immediately** rotate/revoke the credential
 2. **Do NOT** just delete it (it's in git history!)
@@ -166,11 +170,13 @@ git push origin feat/your-feature
 Installed automatically with `make install-tools`.
 
 To run manually:
+
 ```bash
 pre-commit run --all-files
 ```
 
 To skip hooks (NOT RECOMMENDED):
+
 ```bash
 git commit --no-verify  # Don't do this!
 ```
@@ -178,18 +184,22 @@ git commit --no-verify  # Don't do this!
 ## Testing Framework
 
 **Unit Tests:**
+
 - `testing` (stdlib)
 - `testify` for assertions and mocking
 
 **Integration Tests:**
+
 - `dockertest` for real dependencies
 - Run with: `make test-integration`
 
 **E2E Tests:**
+
 - Standard `testing` with real CLI execution
 - Run with: `make test-e2e`
 
 **All Tests:**
+
 ```bash
 make test-all
 ```
@@ -197,6 +207,7 @@ make test-all
 ## Quality Standards
 
 Every commit must:
+
 - ✅ Pass all tests
 - ✅ Pass golangci-lint
 - ✅ Be formatted with gofmt
@@ -234,6 +245,7 @@ make ci            # Run full CI pipeline locally
 ## VS Code Integration
 
 Recommended extensions (install from Extensions marketplace):
+
 - **Go** (golang.go) - Official Go extension
 - **GitLens** - Git supercharged
 - **EditorConfig** - EditorConfig support
@@ -253,6 +265,7 @@ Settings are pre-configured in `.vscode/settings.json`.
 **Types:** feat, fix, docs, refactor, test, chore
 
 **Examples:**
+
 ```
 feat(flashcard): implement SM-2 spaced repetition
 fix(session): prevent duplicate active sessions

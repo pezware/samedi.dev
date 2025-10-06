@@ -17,8 +17,8 @@ package tools
 
 import (
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint" // Linter
-	_ "gotest.tools/gotestsum"                               // Better test output
-	_ "golang.org/x/vuln/cmd/govulncheck"                    // Vulnerability scanner
+	_ "golang.org/x/vuln/cmd/govulncheck"                   // Vulnerability scanner
+	_ "gotest.tools/gotestsum"                              // Better test output
 )
 
 // Note: Some tools don't support being imported as libraries.
