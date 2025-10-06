@@ -4,7 +4,7 @@ This document summarizes the development setup for the Samedi project.
 
 ## Repository Information
 
-- **Repository**: https://github.com/pezware/samedi.git
+- **Repository**: https://github.com/pezware/samedi.dev.git
 - **Code Owner**: @arbeitandy
 - **License**: MIT
 
@@ -110,8 +110,8 @@ This document summarizes the development setup for the Samedi project.
 
 ```bash
 # Clone repository
-git clone https://github.com/pezware/samedi.git
-cd samedi
+git clone https://github.com/pezware/samedi.dev.git
+cd samedi.dev
 
 # Install development tools
 make install-tools
@@ -273,8 +273,8 @@ Pre-commit hooks will validate format.
 ## Questions?
 
 - **Security Issues**: Contact @arbeitandy immediately
-- **General Questions**: Open a [Discussion](https://github.com/pezware/samedi/discussions)
-- **Bugs**: Open an [Issue](https://github.com/pezware/samedi/issues)
+- **General Questions**: Open a [Discussion](https://github.com/pezware/samedi.dev/discussions)
+- **Bugs**: Open an [Issue](https://github.com/pezware/samedi.dev/issues)
 
 ---
 

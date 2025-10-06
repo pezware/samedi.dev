@@ -39,5 +39,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SQLite storage
 - Markdown plan format
 
-[Unreleased]: https://github.com/pezware/samedi/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/pezware/samedi/releases/tag/v0.1.0
+[Unreleased]: https://github.com/pezware/samedi.dev/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/pezware/samedi.dev/releases/tag/v0.1.0

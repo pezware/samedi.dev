@@ -97,8 +97,8 @@ import (
     "context"
     "fmt"
 
-    "github.com/pezware/samedi/internal/storage"  // Internal imports
-    "github.com/pezware/samedi/pkg/markdown"      // Public packages
+    "github.com/pezware/samedi.dev/internal/storage"  // Internal imports
+    "github.com/pezware/samedi.dev/pkg/markdown"      // Public packages
 
     "github.com/spf13/cobra"                          // External imports (alphabetical)
 )
@@ -729,6 +729,6 @@ pre-commit run --all-files
 
 ## Questions?
 
-- Check existing issues: https://github.com/pezware/samedi/issues
-- Ask in discussions: https://github.com/pezware/samedi/discussions
+- Check existing issues: https://github.com/pezware/samedi.dev/issues
+- Ask in discussions: https://github.com/pezware/samedi.dev/discussions
 - Read the specs: `docs/*.md`

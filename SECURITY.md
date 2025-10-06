@@ -159,4 +159,4 @@ Automated via GitHub Dependabot and CI/CD pipeline.
 
 - **Security Issues**: security@pezware.com
 - **Code Owner**: @arbeitandy
-- **General Issues**: https://github.com/pezware/samedi/issues
+- **General Issues**: https://github.com/pezware/samedi.dev/issues

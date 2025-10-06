@@ -271,8 +271,8 @@ func TestCreatePlan_ValidTopic_ReturnsPlan(t *testing.T) {
 
 ## Getting Help
 
-- **Questions?** Open a [Discussion](https://github.com/pezware/samedi/discussions)
-- **Bug?** Open an [Issue](https://github.com/pezware/samedi/issues)
+- **Questions?** Open a [Discussion](https://github.com/pezware/samedi.dev/discussions)
+- **Bug?** Open an [Issue](https://github.com/pezware/samedi.dev/issues)
 
 ## Code of Conduct
 
