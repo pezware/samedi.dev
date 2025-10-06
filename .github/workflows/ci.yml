@@ -106,14 +106,17 @@ jobs:
           cache: true
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
-        with:
-          args: '-no-fail -fmt sarif -out results.sarif ./...'
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -no-fail -fmt sarif -out results.sarif ./...
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
         with:
           sarif_file: results.sarif
+          category: gosec
 
   # Build
   build:
@@ -137,11 +140,11 @@ jobs:
 
       - name: Test binary (Unix)
         if: runner.os != 'Windows'
-        run: ./samedi --version || echo "Version command not implemented yet"
+        run: ./samedi version
 
       - name: Test binary (Windows)
         if: runner.os == 'Windows'
-        run: .\samedi.exe --version || echo "Version command not implemented yet"
+        run: .\samedi.exe version
 
   # Dependency check
   dependencies:
