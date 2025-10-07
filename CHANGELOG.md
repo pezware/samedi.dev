@@ -52,6 +52,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 46 new tests (14 filesystem, 11 SQLite, 21 service) = 126 total tests in plan package
   - Test coverage >85% across all components
   - Mock LLM provider for deterministic testing
+- **Stage 2 Phase 5: CLI Commands** - User-facing plan management commands
+  - `samedi init <topic>` - LLM-powered plan generation with flags (--hours, --level, --goals, --edit)
+  - `samedi plan list` - List all plans with filtering (--status, --tag) and JSON output
+  - `samedi plan show <plan-id>` - Display plan details with progress and recent chunks (--chunks for all)
+  - `samedi plan edit <plan-id>` - Open plan in $EDITOR with validation and metadata update
+  - `samedi plan archive <plan-id>` - Archive completed or abandoned plans
+  - Service initialization helper with LLM provider selection (claude/mock)
+  - Template installation to ~/.samedi/templates/ on first use
+  - Helper functions: formatStatus, formatDuration, truncate, formatProgress
+  - 20 CLI tests (command structure, argument validation, helper functions)
+  - Complete plan management workflow from CLI
 - Dependency: `github.com/yuin/goldmark` v1.7.13 for markdown parsing
 
 ### Changed

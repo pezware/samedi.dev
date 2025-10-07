@@ -1,0 +1,382 @@
+// Copyright (c) 2025 Samedi Contributors
+// SPDX-License-Identifier: MIT
+
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"text/tabwriter"
+
+	"github.com/pezware/samedi.dev/internal/plan"
+	"github.com/pezware/samedi.dev/internal/storage"
+	"github.com/spf13/cobra"
+)
+
+// planCmd creates the parent `samedi plan` command.
+func planCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "plan",
+		Short: "Manage learning plans",
+		Long: `View, edit, and manage your learning plans.
+
+Plans are stored as markdown files in ~/.samedi/plans/ and indexed
+in SQLite for fast queries.
+
+Examples:
+  samedi plan list                    # List all plans
+  samedi plan list --status in-progress
+  samedi plan show rust-async         # Show plan details
+  samedi plan edit rust-async         # Edit in $EDITOR
+  samedi plan archive french-b1       # Archive completed plan`,
+	}
+
+	// Add subcommands
+	cmd.AddCommand(planListCmd())
+	cmd.AddCommand(planShowCmd())
+	cmd.AddCommand(planEditCmd())
+	cmd.AddCommand(planArchiveCmd())
+
+	return cmd
+}
+
+// planListCmd creates the `samedi plan list` subcommand.
+func planListCmd() *cobra.Command {
+	var (
+		statusFilter string
+		tagFilter    string
+		sortBy       string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all learning plans",
+		Long: `List all learning plans with optional filtering.
+
+Examples:
+  samedi plan list
+  samedi plan list --status in-progress
+  samedi plan list --tag language
+  samedi plan list --json`,
+		Run: func(cmd *cobra.Command, _ []string) {
+			svc, err := getPlanService(cmd)
+			if err != nil {
+				exitWithError("Failed to initialize: %v", err)
+			}
+
+			// Build filter
+			filter := &storage.PlanFilter{}
+			if statusFilter != "" {
+				filter.Statuses = []string{statusFilter}
+			}
+			if tagFilter != "" {
+				filter.Tag = tagFilter
+			}
+
+			// Get plans
+			plans, err := svc.List(context.Background(), filter)
+			if err != nil {
+				exitWithError("Failed to list plans: %v", err)
+			}
+
+			// Check for JSON output
+			jsonOutput, err := cmd.Flags().GetBool("json")
+			if err != nil {
+				exitWithError("Failed to get json flag: %v", err)
+			}
+			if jsonOutput {
+				data, err := json.MarshalIndent(plans, "", "  ")
+				if err != nil {
+					exitWithError("Failed to marshal JSON: %v", err)
+				}
+				fmt.Println(string(data))
+				return
+			}
+
+			// Table output
+			if len(plans) == 0 {
+				fmt.Println("No plans found.")
+				fmt.Println("\nCreate a plan: samedi init <topic>")
+				return
+			}
+
+			// Print table
+			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+			fmt.Fprintln(w, "ID\tTITLE\tSTATUS\tPROGRESS\tHOURS")
+
+			for _, p := range plans {
+				fmt.Fprintf(w, "%s\t%s\t%s\t-\t%.1fh\n",
+					p.ID,
+					truncate(p.Title, 40),
+					formatStatus(p.Status),
+					p.TotalHours,
+				)
+			}
+
+			w.Flush()
+		},
+	}
+
+	cmd.Flags().StringVar(&statusFilter, "status", "", "filter by status (not-started, in-progress, completed, archived)")
+	cmd.Flags().StringVar(&tagFilter, "tag", "", "filter by tag")
+	cmd.Flags().StringVar(&sortBy, "sort", "created", "sort by field (created, updated, title)")
+
+	return cmd
+}
+
+// formatStatus returns a human-friendly status string with indicators.
+func formatStatus(status string) string {
+	switch status {
+	case "completed":
+		return "✓ completed"
+	case "in-progress":
+		return "→ in-progress"
+	case "not-started":
+		return "○ not-started"
+	case "archived":
+		return "archived"
+	default:
+		return status
+	}
+}
+
+// truncate truncates a string to a maximum length with ellipsis.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// planShowCmd creates the `samedi plan show` subcommand.
+func planShowCmd() *cobra.Command {
+	var showChunks bool
+
+	cmd := &cobra.Command{
+		Use:   "show <plan-id>",
+		Short: "Show plan details and progress",
+		Long: `Display detailed information about a specific plan.
+
+Shows plan metadata, progress, and recent chunks by default.
+Use --chunks to display all chunks.
+
+Examples:
+  samedi plan show rust-async
+  samedi plan show french-b1 --chunks`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			planID := args[0]
+
+			svc, err := getPlanService(cmd)
+			if err != nil {
+				exitWithError("Failed to initialize: %v", err)
+			}
+
+			// Get plan
+			plan, err := svc.Get(context.Background(), planID)
+			if err != nil {
+				exitWithError("Failed to get plan: %v", err)
+			}
+
+			// Display plan info
+			fmt.Printf("%s\n", plan.Title)
+			fmt.Printf("Status: %s | Progress: %s\n",
+				formatStatus(string(plan.Status)),
+				formatProgress(plan),
+			)
+			fmt.Printf("Created: %s | Updated: %s\n",
+				plan.CreatedAt.Format("2006-01-02"),
+				plan.UpdatedAt.Format("2006-01-02"),
+			)
+			fmt.Printf("Total: %.1f hours", plan.TotalHours)
+			if len(plan.Tags) > 0 {
+				fmt.Printf(" | Tags: %v", plan.Tags)
+			}
+			fmt.Println()
+
+			// Show chunks
+			if showChunks {
+				fmt.Println("\nChunks:")
+				for i, chunk := range plan.Chunks {
+					fmt.Printf("%d. %s (%s) - %s\n",
+						i+1,
+						chunk.Title,
+						formatDuration(chunk.Duration),
+						formatStatus(string(chunk.Status)),
+					)
+				}
+			} else {
+				// Show recent chunks (first 5)
+				fmt.Println("\nRecent chunks:")
+				maxChunks := 5
+				if len(plan.Chunks) < maxChunks {
+					maxChunks = len(plan.Chunks)
+				}
+				for i := 0; i < maxChunks; i++ {
+					chunk := plan.Chunks[i]
+					fmt.Printf("  %s %s (%s)\n",
+						chunkStatusIcon(chunk.Status),
+						chunk.Title,
+						formatDuration(chunk.Duration),
+					)
+				}
+				if len(plan.Chunks) > maxChunks {
+					fmt.Printf("  ... and %d more chunks\n", len(plan.Chunks)-maxChunks)
+				}
+			}
+
+			// Next steps
+			fmt.Println()
+			nextChunk := plan.NextChunk()
+			if nextChunk != nil {
+				fmt.Printf("Next: samedi start %s %s\n", planID, nextChunk.ID)
+			} else {
+				fmt.Println("All chunks completed!")
+			}
+		},
+	}
+
+	cmd.Flags().BoolVar(&showChunks, "chunks", false, "show all chunks")
+
+	return cmd
+}
+
+// planEditCmd creates the `samedi plan edit` subcommand.
+func planEditCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "edit <plan-id>",
+		Short: "Edit plan in $EDITOR",
+		Long: `Open a plan file in your configured editor.
+
+After editing, the plan is validated and SQLite metadata is updated.
+If validation fails, you'll be prompted to fix the errors.
+
+Examples:
+  samedi plan edit rust-async
+  EDITOR=nano samedi plan edit french-b1`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			planID := args[0]
+
+			svc, err := getPlanService(cmd)
+			if err != nil {
+				exitWithError("Failed to initialize: %v", err)
+			}
+
+			// Verify plan exists
+			exists := svc.Exists(context.Background(), planID)
+			if !exists {
+				exitWithError("Plan not found: %s", planID)
+			}
+
+			// Open in editor
+			if err := openPlanInEditor(planID); err != nil {
+				exitWithError("Failed to edit plan: %v", err)
+			}
+
+			// Reload and validate
+			plan, err := svc.Get(context.Background(), planID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to reload plan: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Please check the plan file for errors.\n")
+				return
+			}
+
+			// Update metadata
+			if err := svc.Update(context.Background(), plan); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to update plan metadata: %v\n", err)
+			} else {
+				fmt.Printf("✓ Plan updated: %s\n", plan.Title)
+			}
+		},
+	}
+
+	return cmd
+}
+
+// formatProgress returns a progress string like "24% (12/50)".
+func formatProgress(p *plan.Plan) string {
+	if len(p.Chunks) == 0 {
+		return "0%"
+	}
+
+	completed := 0
+	for _, chunk := range p.Chunks {
+		if chunk.Status == plan.StatusCompleted {
+			completed++
+		}
+	}
+
+	percent := float64(completed) / float64(len(p.Chunks)) * 100
+	return fmt.Sprintf("%.0f%% (%d/%d chunks)", percent, completed, len(p.Chunks))
+}
+
+// chunkStatusIcon returns an icon for chunk status.
+func chunkStatusIcon(status plan.Status) string {
+	switch status {
+	case plan.StatusCompleted:
+		return "✓"
+	case plan.StatusInProgress:
+		return "→"
+	case plan.StatusNotStarted:
+		return "○"
+	default:
+		return " "
+	}
+}
+
+// formatDuration formats minutes into a human-readable string.
+func formatDuration(minutes int) string {
+	if minutes < 60 {
+		return fmt.Sprintf("%dmin", minutes)
+	}
+	hours := float64(minutes) / 60.0
+	if minutes%60 == 0 {
+		return fmt.Sprintf("%.0fh", hours)
+	}
+	return fmt.Sprintf("%.1fh", hours)
+}
+
+// planArchiveCmd creates the `samedi plan archive` subcommand.
+func planArchiveCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "archive <plan-id>",
+		Short: "Archive a completed or abandoned plan",
+		Long: `Archive a learning plan by changing its status to 'archived'.
+
+Archived plans are hidden from default listings but can still be viewed
+with 'samedi plan list --status archived'.
+
+Examples:
+  samedi plan archive french-b1
+  samedi plan archive rust-async`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			planID := args[0]
+
+			svc, err := getPlanService(cmd)
+			if err != nil {
+				exitWithError("Failed to initialize: %v", err)
+			}
+
+			// Get plan
+			p, err := svc.Get(context.Background(), planID)
+			if err != nil {
+				exitWithError("Failed to get plan: %v", err)
+			}
+
+			// Update status to archived
+			p.Status = plan.StatusArchived
+			if err := svc.Update(context.Background(), p); err != nil {
+				exitWithError("Failed to archive plan: %v", err)
+			}
+
+			fmt.Printf("✓ Plan archived: %s\n", p.Title)
+			fmt.Printf("  View archived plans: samedi plan list --status archived\n")
+		},
+	}
+
+	return cmd
+}
