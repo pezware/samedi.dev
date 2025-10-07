@@ -264,13 +264,14 @@ func Format(plan *Plan) (string, error) {
 		// Duration
 		hours := float64(chunk.Duration) / 60.0
 		if hours == float64(int(hours)) {
+			// Whole hours
 			buf.WriteString(fmt.Sprintf("**Duration**: %d hour", int(hours)))
+			if int(hours) != 1 {
+				buf.WriteString("s")
+			}
 		} else {
+			// Fractional hours - always plural
 			buf.WriteString(fmt.Sprintf("**Duration**: %.1f hours", hours))
-		}
-		if hours != 1.0 && int(hours) != 1 {
-			// Add plural 's' if not exactly 1 hour
-			buf.WriteString("s")
 		}
 		buf.WriteString("\n")
 
