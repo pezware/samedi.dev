@@ -270,6 +270,58 @@ func TestFormat_RoundTrip(t *testing.T) {
 	assert.Equal(t, original.Chunks[0].Status, parsed.Chunks[0].Status)
 }
 
+func TestFormat_RoundTrip_SubHourChunks(t *testing.T) {
+	// Test round-trip with sub-hour durations (regression test for hourss bug)
+	now := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+
+	original := &Plan{
+		ID:         "test-subhour",
+		Title:      "Sub-Hour Test",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		TotalHours: 2.0,
+		Status:     StatusNotStarted,
+		Tags:       []string{"test"},
+		Chunks: []Chunk{
+			{
+				ID:       "chunk-001",
+				Title:    "30 Minutes",
+				Duration: 30, // 0.5 hours
+				Status:   StatusNotStarted,
+			},
+			{
+				ID:       "chunk-002",
+				Title:    "90 Minutes",
+				Duration: 90, // 1.5 hours
+				Status:   StatusNotStarted,
+			},
+		},
+	}
+
+	// Format to markdown
+	markdown, err := Format(original)
+	require.NoError(t, err)
+
+	// Verify no "hourss" bug
+	assert.NotContains(t, markdown, "hourss")
+	assert.Contains(t, markdown, "0.5 hours")
+	assert.Contains(t, markdown, "1.5 hours")
+
+	// Parse back
+	parsed, err := Parse(markdown)
+	require.NoError(t, err)
+
+	// Verify durations survived round-trip
+	require.Len(t, parsed.Chunks, 2)
+	assert.Equal(t, 30, parsed.Chunks[0].Duration, "30 min chunk should survive round-trip")
+	assert.Equal(t, 90, parsed.Chunks[1].Duration, "90 min chunk should survive round-trip")
+
+	// Format again to ensure double round-trip works
+	markdown2, err := Format(parsed)
+	require.NoError(t, err)
+	assert.NotContains(t, markdown2, "hourss")
+}
+
 func TestParseChunks_VariousFormats(t *testing.T) {
 	body := `
 ## Chunk 1: Basic Test {#chunk-001}
