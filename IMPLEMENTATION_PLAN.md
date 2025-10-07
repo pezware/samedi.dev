@@ -85,30 +85,33 @@ stages. Each stage delivers a complete, tested slice of functionality.
 
 **Goal:** Create and manage learning plans
 
-**Status:** Not Started
+**Status:** In Progress (Phase 1-2 Complete ✅)
 
 **Success Criteria:**
 
 - [ ] Can generate plans via LLM (with mock provider)
-- [ ] Plans saved as markdown with frontmatter
+- [x] Plans saved as markdown with frontmatter
 - [ ] Plans indexed in SQLite
 - [ ] Can list, view, and edit plans
-- [ ] All tests pass
-- [ ] `make check` succeeds
+- [x] All tests pass (Phase 1-2: 38 tests, 97.9% coverage)
+- [x] `make check` succeeds
 
 **Deliverables:**
 
-### 2.1 Plan Domain Models
+### 2.1 Plan Domain Models ✅
 
-- [ ] `internal/plan/plan.go` - Plan struct
-- [ ] `internal/plan/chunk.go` - Chunk struct
-- [ ] `internal/plan/plan_test.go` - Model tests
+- [x] `internal/plan/plan.go` - Plan and Chunk structs with validation
+- [x] `internal/plan/plan_test.go` - Model tests (24 tests)
 
-### 2.2 Markdown Parser
+**Note:** Combined Plan and Chunk into single file (plan.go) per Go conventions
 
-- [ ] `internal/plan/parser.go` - Parse markdown with frontmatter
-- [ ] `internal/plan/validator.go` - Validate plan structure
-- [ ] `internal/plan/parser_test.go` - Parser tests
+### 2.2 Markdown Parser ✅
+
+- [x] `internal/plan/parser.go` - Parse markdown with frontmatter (bidirectional)
+- [x] `internal/plan/parser_test.go` - Parser tests (14 tests with fixtures)
+
+**Note:** Validation is integrated into Plan.Validate() method, no separate
+validator.go needed
 
 ### 2.3 LLM Integration
 
@@ -140,10 +143,10 @@ stages. Each stage delivers a complete, tested slice of functionality.
 - Plan listing and filtering
 - Plan editing workflow
 
-**Dependencies to Add:**
+**Dependencies Added:**
 
-- `github.com/yuin/goldmark` - Markdown parsing
-- `gopkg.in/yaml.v3` - Already in go.mod
+- ✅ `github.com/yuin/goldmark` - Markdown parsing (added v1.7.13)
+- ✅ `gopkg.in/yaml.v3` - Already in go.mod
 
 ---
 
@@ -409,6 +412,12 @@ Before marking a stage complete:
   - Cobra CLI integration with config subcommands
 - All Stage 1 success criteria met
 - Documented 5 follow-up improvements for future iteration
+- Started Stage 2: Plan Management
+- Completed Stage 2 Phase 1-2:
+  - Plan and Chunk domain models with validation (24 tests)
+  - Markdown parser with YAML frontmatter support (14 tests)
+  - 97.9% test coverage, all quality checks passing
+  - PR #5 created for review
 
 ---
 

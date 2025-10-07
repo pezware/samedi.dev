@@ -17,6 +17,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tools/tools.go` for pinning development tool versions
 - `make vuln` target for vulnerability scanning with govulncheck
 - Pinned versions for all development tools in Makefile
+- **Stage 1: Foundation** - Configuration and storage infrastructure
+  - Configuration system with TOML loading, validation, and CLI commands
+  - SQLite database with schema migrations
+  - Filesystem storage with path management
+  - Repository interfaces with mock implementations
+  - Cobra CLI integration (`samedi config` subcommands)
+  - 81.4% test coverage on config package
+- **Stage 2 Phase 1-2: Plan Management** - Domain models and markdown parsing
+  - Plan and Chunk domain models with comprehensive validation
+  - Status enum (not-started, in-progress, completed, skipped, archived)
+  - Bidirectional markdown parser with YAML frontmatter support
+  - Duration parsing with flexible formats (hours/minutes)
+  - Helper methods: Progress(), NextChunk(), duration calculations
+  - 38 tests with 97.9% coverage
+  - Test fixtures for valid/invalid/edge cases
+  - `.markdownlintignore` to exclude test data from linting
+- Dependency: `github.com/yuin/goldmark` v1.7.13 for markdown parsing
 
 ### Changed
 - Updated to Go 1.25.1 (from 1.21)
