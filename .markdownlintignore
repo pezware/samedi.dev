@@ -1,0 +1,3 @@
+# Ignore test fixtures - they intentionally have various formats for testing
+internal/*/testdata/
+**/testdata/**
