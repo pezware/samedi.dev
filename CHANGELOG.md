@@ -52,6 +52,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 46 new tests (14 filesystem, 11 SQLite, 21 service) = 126 total tests in plan package
   - Test coverage >85% across all components
   - Mock LLM provider for deterministic testing
+- **Stage 2 Phase 5: CLI Commands** - User-facing plan management commands
+  - `samedi init <topic>` - LLM-powered plan generation with flags (--hours, --level, --goals, --edit)
+  - `samedi plan list` - List all plans with filtering (--status, --tag) and JSON output
+  - `samedi plan show <plan-id>` - Display plan details with progress and recent chunks (--chunks for all)
+  - `samedi plan edit <plan-id>` - Open plan in $EDITOR with validation and metadata update
+  - `samedi plan archive <plan-id>` - Archive completed or abandoned plans
+  - Service initialization helper with LLM provider selection (claude/mock)
+  - Template installation to ~/.samedi/templates/ on first use
+  - Helper functions: formatStatus, formatDuration, truncate, formatProgress
+  - 20 CLI tests (command structure, argument validation, helper functions)
+  - Complete plan management workflow from CLI
 - Dependency: `github.com/yuin/goldmark` v1.7.13 for markdown parsing
 
 ### Changed
@@ -68,6 +79,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TBD
 
 ### Fixed
+- **LLM CLI Integration** - Fixed broken Claude provider and added working implementations
+  - Fixed `--prompt-file` error: Claude CLI provider was using non-existent flag
+  - Added `auto` provider for automatic CLI detection (claude → codex → gemini → llm → mock)
+  - Added `claude` provider for Claude Code CLI (recommended for Claude users)
+  - Added `codex` provider for Codex CLI (OpenAI-focused)
+  - Added `gemini` provider for Gemini CLI (Google models)
+  - Added `llm` provider for Simon Willison's llm CLI tool (universal fallback)
+  - Added `stdin` provider for generic CLI tools (aichat, mods, ollama, etc.)
+  - Added `mock` provider as explicit option for testing
+  - Updated default LLM provider from "claude" to "llm" with model "claude-3-5-sonnet"
+  - Updated config validator to accept new providers (auto, claude, codex, gemini, llm, stdin, mock)
+  - All providers use stdin-based interface for better compatibility
+  - Installation: `uv pip install llm && llm install llm-claude-3` (using modern uv package manager)
+  - Auto-detection allows zero-configuration setup for users with existing CLIs
+  - 34+ new tests for LLM providers with CI-safe design
+  - All existing tests passing with updated defaults
 - golangci-lint configuration updated to fix deprecated options and linters
   - Replaced deprecated `run.skip-dirs` and `run.skip-files` with `issues.exclude-dirs` and `issues.exclude-files`
   - Replaced deprecated `exportloopref` linter with `copyloopvar` (Go 1.22+ compatible)

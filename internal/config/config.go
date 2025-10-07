@@ -79,9 +79,9 @@ func DefaultConfig() *Config {
 			Timezone: time.Local.String(),
 		},
 		LLM: LLMConfig{
-			Provider:       "claude",
-			CLICommand:     "claude",
-			DefaultModel:   "claude-sonnet-4",
+			Provider:       "llm",
+			CLICommand:     "llm",
+			DefaultModel:   "claude-3-5-sonnet",
 			TimeoutSeconds: 120,
 		},
 		Storage: StorageConfig{

@@ -44,9 +44,9 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		Provider:   "claude",
-		Command:    "claude",
-		Model:      "claude-sonnet-4",
+		Provider:   "llm",
+		Command:    "llm",
+		Model:      "claude-3-5-sonnet",
 		Timeout:    120 * time.Second,
 		MaxRetries: 2,
 		UseStdin:   false,

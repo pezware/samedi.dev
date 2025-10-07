@@ -85,15 +85,15 @@ stages. Each stage delivers a complete, tested slice of functionality.
 
 **Goal:** Create and manage learning plans
 
-**Status:** Phase 1-4 Complete ✅ (CLI Commands remain)
+**Status:** Complete ✅
 
 **Success Criteria:**
 
 - [x] Can generate plans via LLM (with mock provider)
 - [x] Plans saved as markdown with frontmatter
 - [x] Plans indexed in SQLite
-- [x] Can list, view, and edit plans (via service layer)
-- [x] All tests pass (Phase 1-4: 126 tests, combined coverage >85%)
+- [x] Can list, view, and edit plans via CLI commands
+- [x] All tests pass (146+ tests, combined coverage >80%)
 - [x] `make check` succeeds
 
 **Deliverables:**
@@ -139,11 +139,18 @@ Claude CLI provider uses temp files for prompt passing.
 markdown storage, and LLM providers. Includes proper error handling, rollback on
 failures, and comprehensive test coverage with mock LLM provider.
 
-### 2.5 CLI Commands
+### 2.5 CLI Commands ✅
 
-- [ ] `internal/cli/init.go` - `samedi init` command
-- [ ] `internal/cli/plan.go` - `samedi plan` subcommands
-- [ ] `internal/cli/plan_test.go` - CLI tests
+- [x] `internal/cli/init.go` - `samedi init` command (135 lines)
+- [x] `internal/cli/plan.go` - `samedi plan` subcommands (379 lines)
+- [x] `internal/cli/plan_test.go` - CLI tests (149 lines)
+- [x] `internal/cli/root.go` - Updated with plan service initialization
+  (98 lines added)
+
+**Note:** CLI commands provide complete plan management workflow.
+Integration with service layer enables LLM-powered plan generation,
+listing with filters, detailed plan views, in-editor editing, and
+archiving.
 
 **Tests:**
 
@@ -450,7 +457,17 @@ Before marking a stage complete:
   - 126 total tests in plan package, all passing
   - All quality checks passing (fmt, vet, lint, tests with race detection)
   - Test coverage >85% across all plan package components
-  - Branch: feat/stage-2-plan-service-cli
+  - Branch: feat/stage-2-plan-service-cli (PR #7, merged)
+
+- Completed Stage 2 Phase 5 (CLI Commands):
+  - Implemented `samedi init` command for LLM-powered plan generation (135 lines)
+  - Implemented `samedi plan list/show/edit/archive` commands (379 lines)
+  - Added getPlanService() helper for dependency injection in CLI
+  - Template installation with ensureTemplate() helper
+  - 20 CLI tests covering command structure and helper functions (149 lines)
+  - Full plan management workflow: init → list → show → edit → archive
+  - All quality checks passing (make check)
+  - Branch: feat/stage-2-cli-commands
 
 ---
 
