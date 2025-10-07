@@ -81,14 +81,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **LLM CLI Integration** - Fixed broken Claude provider and added working implementations
   - Fixed `--prompt-file` error: Claude CLI provider was using non-existent flag
-  - Added `llm` provider for Simon Willison's llm CLI tool (recommended, supports Claude/GPT-4/Gemini)
+  - Added `auto` provider for automatic CLI detection (claude → codex → gemini → llm → mock)
+  - Added `claude` provider for Claude Code CLI (recommended for Claude users)
+  - Added `codex` provider for Codex CLI (OpenAI-focused)
+  - Added `gemini` provider for Gemini CLI (Google models)
+  - Added `llm` provider for Simon Willison's llm CLI tool (universal fallback)
   - Added `stdin` provider for generic CLI tools (aichat, mods, ollama, etc.)
   - Added `mock` provider as explicit option for testing
   - Updated default LLM provider from "claude" to "llm" with model "claude-3-5-sonnet"
-  - Updated config validator to accept new providers (llm, stdin, mock)
+  - Updated config validator to accept new providers (auto, claude, codex, gemini, llm, stdin, mock)
   - All providers use stdin-based interface for better compatibility
-  - Installation: `pip install llm && llm install llm-claude-3`
-  - 34 new tests for LLM providers (llm_cli_test.go, stdin_test.go)
+  - Installation: `uv pip install llm && llm install llm-claude-3` (using modern uv package manager)
+  - Auto-detection allows zero-configuration setup for users with existing CLIs
+  - 34+ new tests for LLM providers with CI-safe design
   - All existing tests passing with updated defaults
 - golangci-lint configuration updated to fix deprecated options and linters
   - Replaced deprecated `run.skip-dirs` and `run.skip-files` with `issues.exclude-dirs` and `issues.exclude-files`

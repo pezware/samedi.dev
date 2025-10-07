@@ -11,62 +11,62 @@ import (
 	"os/exec"
 )
 
-// CLIProvider executes the `llm` CLI tool (by Simon Willison).
-// See: https://llm.datasette.io/
+// ClaudeCodeProvider executes the `claude` CLI from Claude Code.
+// See: https://claude.com/claude-code
 //
-// The `llm` tool provides a unified interface to multiple LLM providers
-// including Claude, GPT-4, Gemini, and more.
+// The `claude` CLI provides access to Anthropic's Claude models
+// with integrated file context and tool usage capabilities.
 //
 // Installation:
 //
-//	uv pip install llm
-//	llm install llm-claude-3  # For Claude support
+//	npm install -g @anthropic/claude-code
 //
 // Usage:
 //
-//	echo "prompt" | llm -m claude-3-5-sonnet
-//	llm "prompt text" -m gpt-4
-type CLIProvider struct {
+//	echo "prompt" | claude -p --model sonnet
+//	claude -p "prompt text" --model opus
+type ClaudeCodeProvider struct {
 	config Config
 }
 
-// NewCLIProvider creates a new llm CLI provider.
-func NewCLIProvider(config *Config) *CLIProvider {
+// NewClaudeCodeProvider creates a new Claude Code CLI provider.
+func NewClaudeCodeProvider(config *Config) *ClaudeCodeProvider {
 	if config.Command == "" {
-		config.Command = "llm"
+		config.Command = "claude"
 	}
 	if config.Model == "" {
-		config.Model = "claude-3-5-sonnet"
+		config.Model = "sonnet" // Claude Code uses short aliases
 	}
 	if config.Timeout == 0 {
 		config.Timeout = DefaultConfig().Timeout
 	}
 
-	return &CLIProvider{
+	return &ClaudeCodeProvider{
 		config: *config,
 	}
 }
 
-// Call sends a prompt to the llm CLI via stdin and returns the response.
-func (l *CLIProvider) Call(ctx context.Context, prompt string) (string, error) {
+// Call sends a prompt to the claude CLI via stdin and returns the response.
+func (c *ClaudeCodeProvider) Call(ctx context.Context, prompt string) (string, error) {
 	// Create context with timeout
-	ctx, cancel := context.WithTimeout(ctx, l.config.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, c.config.Timeout)
 	defer cancel()
 
 	// Build command arguments
-	args := []string{}
+	// claude -p --model <model>
+	args := []string{"-p"} // Print mode for non-interactive output
 
 	// Add model if specified
-	if l.config.Model != "" {
-		args = append(args, "-m", l.config.Model)
+	if c.config.Model != "" {
+		args = append(args, "--model", c.config.Model)
 	}
 
 	// Add any custom arguments
-	args = append(args, l.config.Args...)
+	args = append(args, c.config.Args...)
 
 	// Execute CLI command with prompt via stdin
 	// #nosec G204 - command is user-configured in config, intentionally dynamic
-	cmd := exec.CommandContext(ctx, l.config.Command, args...)
+	cmd := exec.CommandContext(ctx, c.config.Command, args...)
 
 	// Pass prompt via stdin
 	cmd.Stdin = bytes.NewBufferString(prompt)
@@ -77,8 +77,8 @@ func (l *CLIProvider) Call(ctx context.Context, prompt string) (string, error) {
 		// Check if error is due to timeout
 		if ctx.Err() == context.DeadlineExceeded {
 			return "", &ProviderError{
-				Provider:  "llm",
-				Err:       fmt.Errorf("timeout after %v", l.config.Timeout),
+				Provider:  "claude",
+				Err:       fmt.Errorf("timeout after %v", c.config.Timeout),
 				Retryable: true,
 			}
 		}
@@ -87,14 +87,14 @@ func (l *CLIProvider) Call(ctx context.Context, prompt string) (string, error) {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return "", &ProviderError{
-				Provider:  "llm",
+				Provider:  "claude",
 				Err:       fmt.Errorf("CLI error (exit code %d): %s", exitErr.ExitCode(), string(output)),
 				Retryable: false,
 			}
 		}
 
 		return "", &ProviderError{
-			Provider:  "llm",
+			Provider:  "claude",
 			Err:       fmt.Errorf("execution failed: %w", err),
 			Retryable: false,
 		}

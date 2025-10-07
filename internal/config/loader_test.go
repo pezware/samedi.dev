@@ -13,13 +13,25 @@ import (
 )
 
 func TestLoad_NoConfigFile(t *testing.T) {
+	// Create temp directory for test
+	tmpDir := t.TempDir()
+
+	// Store original HOME and restore after test
+	origHomeDir := os.Getenv("HOME")
+	defer func() {
+		os.Setenv("HOME", origHomeDir)
+	}()
+
+	// Override home directory for test
+	os.Setenv("HOME", tmpDir)
+
 	// Load should return defaults if no config file exists
 	cfg, err := Load()
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	// Should have defaults
-	assert.Equal(t, "claude", cfg.LLM.Provider)
+	assert.Equal(t, "llm", cfg.LLM.Provider)
 }
 
 func TestSave_And_Load(t *testing.T) {

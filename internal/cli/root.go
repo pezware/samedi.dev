@@ -132,24 +132,48 @@ func getPlanService(_ *cobra.Command) (*plan.Service, error) {
 		Timeout:  time.Duration(cfg.LLM.TimeoutSeconds) * time.Second,
 	}
 
-	switch strings.ToLower(cfg.LLM.Provider) {
+	providerName := strings.ToLower(cfg.LLM.Provider)
+
+	// Auto-detect if provider is "auto"
+	if providerName == "auto" {
+		detected := llm.DetectCLI()
+		if detected.Found {
+			providerName = detected.Name
+			llmConfig.Command = detected.Command
+			llmConfig.Model = detected.Model
+			// NOTE: Could add logging here if verbose mode is enabled
+			// fmt.Printf("Auto-detected %s CLI\n", detected.Name)
+		} else {
+			// No CLI found, fall back to mock
+			providerName = "mock"
+		}
+	}
+
+	switch providerName {
 	case "mock":
 		llmProvider = llm.NewMockProvider()
+	case "claude":
+		// Claude Code CLI (https://claude.com/claude-code)
+		// Installation: npm install -g @anthropic/claude-code
+		llmProvider = llm.NewClaudeCodeProvider(llmConfig)
+	case "codex":
+		// Codex CLI (https://codex.dev)
+		// Installation: npm install -g @codex/cli
+		llmProvider = llm.NewCodexProvider(llmConfig)
+	case "gemini":
+		// Gemini CLI (https://github.com/google/gemini-cli)
+		// Installation: npm install -g @google/gemini-cli
+		llmProvider = llm.NewGeminiCLIProvider(llmConfig)
 	case "llm":
-		// Simon Willison's llm CLI tool (recommended)
-		// Installation: pip install llm
+		// Simon Willison's llm CLI tool (universal fallback)
+		// Installation: uv pip install llm && llm install llm-claude-3
 		llmProvider = llm.NewCLIProvider(llmConfig)
 	case "stdin":
 		// Generic stdin-based provider for custom CLIs
 		// Requires llm.cli_command to be set in config
 		llmProvider = llm.NewStdinProvider(llmConfig)
-	case "claude":
-		// Note: Official Claude CLI doesn't exist with this interface
-		// This provider uses the deprecated --prompt-file approach
-		// Consider using 'llm' provider instead
-		llmProvider = llm.NewClaudeProvider(llmConfig)
 	default:
-		return nil, fmt.Errorf("unsupported LLM provider: %s (supported: llm, stdin, mock)", cfg.LLM.Provider)
+		return nil, fmt.Errorf("unsupported LLM provider: %s (supported: auto, claude, codex, gemini, llm, stdin, mock)", cfg.LLM.Provider)
 	}
 
 	// Create repositories
