@@ -41,6 +41,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ProviderError type with retry indication
   - 11 tests with 86.7% coverage
   - Security: Proper handling of dynamic commands with gosec annotations
+- **Stage 2 Phase 4: Plan Service** - Complete plan management with hybrid storage
+  - SQLite repository with ToRecord/RecordToPlan conversion functions
+  - Filesystem repository for markdown file operations (Save/Load/Delete/List/LoadAll)
+  - Service layer orchestrating SQLite metadata + filesystem markdown + LLM generation
+  - Plan CRUD operations: Create (with LLM), Get, Update, Delete, List, GetMetadata
+  - Template rendering with Go text/template for LLM prompts
+  - Slugify utility for filesystem-safe plan IDs from topics
+  - Atomic operations with proper rollback on failures
+  - 46 new tests (14 filesystem, 11 SQLite, 21 service) = 126 total tests in plan package
+  - Test coverage >85% across all components
+  - Mock LLM provider for deterministic testing
 - Dependency: `github.com/yuin/goldmark` v1.7.13 for markdown parsing
 
 ### Changed

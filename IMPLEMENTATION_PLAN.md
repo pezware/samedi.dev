@@ -85,15 +85,15 @@ stages. Each stage delivers a complete, tested slice of functionality.
 
 **Goal:** Create and manage learning plans
 
-**Status:** In Progress (Phase 1-3 Complete ✅)
+**Status:** Phase 1-4 Complete ✅ (CLI Commands remain)
 
 **Success Criteria:**
 
 - [x] Can generate plans via LLM (with mock provider)
 - [x] Plans saved as markdown with frontmatter
-- [ ] Plans indexed in SQLite
-- [ ] Can list, view, and edit plans
-- [x] All tests pass (Phase 1-3: 49 tests, combined coverage >85%)
+- [x] Plans indexed in SQLite
+- [x] Can list, view, and edit plans (via service layer)
+- [x] All tests pass (Phase 1-4: 126 tests, combined coverage >85%)
 - [x] `make check` succeeds
 
 **Deliverables:**
@@ -124,12 +124,20 @@ validator.go needed
 **Note:** Provider interface supports context-based timeouts and retry logic.
 Claude CLI provider uses temp files for prompt passing.
 
-### 2.4 Plan Service
+### 2.4 Plan Service ✅
 
-- [ ] `internal/plan/service.go` - Business logic
-- [ ] `internal/plan/repository_sqlite.go` - SQLite implementation
-- [ ] `internal/plan/repository_filesystem.go` - Filesystem implementation
-- [ ] `internal/plan/service_test.go` - Service tests
+- [x] `internal/plan/service.go` - Business logic (290 lines)
+- [x] `internal/plan/repository_sqlite.go` - SQLite implementation (279 lines)
+- [x] `internal/plan/repository_filesystem.go` - Filesystem implementation (155 lines)
+- [x] `internal/plan/service_test.go` - Service tests (21 tests, 550 lines)
+- [x] `internal/plan/repository_sqlite_test.go` - SQLite tests
+  (11 tests, 322 lines)
+- [x] `internal/plan/repository_filesystem_test.go` - Filesystem tests
+  (14 tests, 365 lines)
+
+**Note:** Service layer orchestrates between SQLite metadata storage, filesystem
+markdown storage, and LLM providers. Includes proper error handling, rollback on
+failures, and comprehensive test coverage with mock LLM provider.
 
 ### 2.5 CLI Commands
 
@@ -427,6 +435,22 @@ Before marking a stage complete:
   - 11 tests with 86.7% coverage
   - Context-based timeout handling and error wrapping
   - Branch: feat/stage-2-llm-integration
+
+### 2025-10-07
+
+- Completed Stage 2 Phase 4 (Plan Service):
+  - Fixed SQLite repository interface to match storage.PlanRepository
+  - Added ToRecord() and RecordToPlan() conversion functions
+  - Implemented FilesystemRepository with Save/Load/Delete/List operations (14 tests)
+  - Implemented Service layer orchestrating SQLite + Filesystem + LLM (21 tests)
+  - Service includes Create/Get/Update/Delete/List/GetMetadata operations
+  - Template rendering with Go templates for LLM prompt generation
+  - Slugify utility for generating filesystem-safe plan IDs
+  - Comprehensive error handling with rollback on failures
+  - 126 total tests in plan package, all passing
+  - All quality checks passing (fmt, vet, lint, tests with race detection)
+  - Test coverage >85% across all plan package components
+  - Branch: feat/stage-2-plan-service-cli
 
 ---
 
