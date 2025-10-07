@@ -9,14 +9,17 @@ import "fmt"
 func (c *Config) Validate() error {
 	// Validate LLM provider
 	validProviders := map[string]bool{
-		"claude":  true,
+		"llm":     true, // Simon Willison's llm CLI (recommended)
+		"stdin":   true, // Generic stdin-based provider
+		"mock":    true, // Mock provider for testing
+		"claude":  true, // Deprecated: use 'llm' instead
 		"codex":   true,
 		"gemini":  true,
 		"amazonq": true,
 		"custom":  true,
 	}
 	if !validProviders[c.LLM.Provider] {
-		return fmt.Errorf("invalid LLM provider: %s (must be one of: claude, codex, gemini, amazonq, custom)", c.LLM.Provider)
+		return fmt.Errorf("invalid LLM provider: %s (must be one of: llm, stdin, mock, claude, codex, gemini, amazonq, custom)", c.LLM.Provider)
 	}
 
 	// Validate timeout

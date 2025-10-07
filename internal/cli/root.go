@@ -125,19 +125,31 @@ func getPlanService(_ *cobra.Command) (*plan.Service, error) {
 
 	// Create LLM provider based on config
 	var llmProvider llm.Provider
+	llmConfig := &llm.Config{
+		Provider: cfg.LLM.Provider,
+		Command:  cfg.LLM.CLICommand,
+		Model:    cfg.LLM.DefaultModel,
+		Timeout:  time.Duration(cfg.LLM.TimeoutSeconds) * time.Second,
+	}
+
 	switch strings.ToLower(cfg.LLM.Provider) {
 	case "mock":
 		llmProvider = llm.NewMockProvider()
+	case "llm":
+		// Simon Willison's llm CLI tool (recommended)
+		// Installation: pip install llm
+		llmProvider = llm.NewCLIProvider(llmConfig)
+	case "stdin":
+		// Generic stdin-based provider for custom CLIs
+		// Requires llm.cli_command to be set in config
+		llmProvider = llm.NewStdinProvider(llmConfig)
 	case "claude":
-		llmConfig := &llm.Config{
-			Provider: cfg.LLM.Provider,
-			Command:  cfg.LLM.CLICommand,
-			Model:    cfg.LLM.DefaultModel,
-			Timeout:  time.Duration(cfg.LLM.TimeoutSeconds) * time.Second,
-		}
+		// Note: Official Claude CLI doesn't exist with this interface
+		// This provider uses the deprecated --prompt-file approach
+		// Consider using 'llm' provider instead
 		llmProvider = llm.NewClaudeProvider(llmConfig)
 	default:
-		return nil, fmt.Errorf("unsupported LLM provider: %s (use 'claude' or 'mock')", cfg.LLM.Provider)
+		return nil, fmt.Errorf("unsupported LLM provider: %s (supported: llm, stdin, mock)", cfg.LLM.Provider)
 	}
 
 	// Create repositories

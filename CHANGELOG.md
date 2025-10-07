@@ -79,6 +79,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TBD
 
 ### Fixed
+- **LLM CLI Integration** - Fixed broken Claude provider and added working implementations
+  - Fixed `--prompt-file` error: Claude CLI provider was using non-existent flag
+  - Added `llm` provider for Simon Willison's llm CLI tool (recommended, supports Claude/GPT-4/Gemini)
+  - Added `stdin` provider for generic CLI tools (aichat, mods, ollama, etc.)
+  - Added `mock` provider as explicit option for testing
+  - Updated default LLM provider from "claude" to "llm" with model "claude-3-5-sonnet"
+  - Updated config validator to accept new providers (llm, stdin, mock)
+  - All providers use stdin-based interface for better compatibility
+  - Installation: `pip install llm && llm install llm-claude-3`
+  - 34 new tests for LLM providers (llm_cli_test.go, stdin_test.go)
+  - All existing tests passing with updated defaults
 - golangci-lint configuration updated to fix deprecated options and linters
   - Replaced deprecated `run.skip-dirs` and `run.skip-files` with `issues.exclude-dirs` and `issues.exclude-files`
   - Replaced deprecated `exportloopref` linter with `copyloopvar` (Go 1.22+ compatible)

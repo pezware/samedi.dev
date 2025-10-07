@@ -16,8 +16,8 @@ func TestDefaultConfig(t *testing.T) {
 	require.NotNil(t, cfg)
 
 	// Check LLM defaults
-	assert.Equal(t, "claude", cfg.LLM.Provider)
-	assert.Equal(t, "claude", cfg.LLM.CLICommand)
+	assert.Equal(t, "llm", cfg.LLM.Provider)
+	assert.Equal(t, "llm", cfg.LLM.CLICommand)
 	assert.Equal(t, 120, cfg.LLM.TimeoutSeconds)
 
 	// Check storage defaults

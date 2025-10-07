@@ -16,9 +16,9 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
-	assert.Equal(t, "claude", cfg.Provider)
-	assert.Equal(t, "claude", cfg.Command)
-	assert.Equal(t, "claude-sonnet-4", cfg.Model)
+	assert.Equal(t, "llm", cfg.Provider)
+	assert.Equal(t, "llm", cfg.Command)
+	assert.Equal(t, "claude-3-5-sonnet", cfg.Model)
 	assert.Equal(t, 120*time.Second, cfg.Timeout)
 	assert.Equal(t, 2, cfg.MaxRetries)
 	assert.False(t, cfg.UseStdin)
