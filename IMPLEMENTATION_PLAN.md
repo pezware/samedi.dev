@@ -85,15 +85,15 @@ stages. Each stage delivers a complete, tested slice of functionality.
 
 **Goal:** Create and manage learning plans
 
-**Status:** In Progress (Phase 1-2 Complete ✅)
+**Status:** In Progress (Phase 1-3 Complete ✅)
 
 **Success Criteria:**
 
-- [ ] Can generate plans via LLM (with mock provider)
+- [x] Can generate plans via LLM (with mock provider)
 - [x] Plans saved as markdown with frontmatter
 - [ ] Plans indexed in SQLite
 - [ ] Can list, view, and edit plans
-- [x] All tests pass (Phase 1-2: 38 tests, 97.9% coverage)
+- [x] All tests pass (Phase 1-3: 49 tests, combined coverage >85%)
 - [x] `make check` succeeds
 
 **Deliverables:**
@@ -113,13 +113,16 @@ stages. Each stage delivers a complete, tested slice of functionality.
 **Note:** Validation is integrated into Plan.Validate() method, no separate
 validator.go needed
 
-### 2.3 LLM Integration
+### 2.3 LLM Integration ✅
 
-- [ ] `internal/llm/provider.go` - LLM provider interface
-- [ ] `internal/llm/mock.go` - Mock provider for testing
-- [ ] `internal/llm/claude.go` - Claude CLI implementation (stub)
-- [ ] `templates/plan-generation.md` - LLM prompt template
-- [ ] `internal/llm/provider_test.go` - Provider tests
+- [x] `internal/llm/provider.go` - LLM provider interface
+- [x] `internal/llm/mock.go` - Mock provider for testing
+- [x] `internal/llm/claude.go` - Claude CLI implementation (stub)
+- [x] `templates/plan-generation.md` - LLM prompt template
+- [x] `internal/llm/provider_test.go` - Provider tests (11 tests)
+
+**Note:** Provider interface supports context-based timeouts and retry logic.
+Claude CLI provider uses temp files for prompt passing.
 
 ### 2.4 Plan Service
 
@@ -417,7 +420,13 @@ Before marking a stage complete:
   - Plan and Chunk domain models with validation (24 tests)
   - Markdown parser with YAML frontmatter support (14 tests)
   - 97.9% test coverage, all quality checks passing
-  - PR #5 created for review
+  - PR #5 created and merged
+- Completed Stage 2 Phase 3:
+  - LLM provider interface with mock and Claude CLI implementations
+  - Plan generation template with Go template variables
+  - 11 tests with 86.7% coverage
+  - Context-based timeout handling and error wrapping
+  - Branch: feat/stage-2-llm-integration
 
 ---
 
