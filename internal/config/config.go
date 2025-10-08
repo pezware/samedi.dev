@@ -81,7 +81,7 @@ func DefaultConfig() *Config {
 		LLM: LLMConfig{
 			Provider:       "auto",
 			CLICommand:     "",
-			DefaultModel:   "sonnet",
+			DefaultModel:   "", // Empty allows each provider to use its own default
 			TimeoutSeconds: 300,
 		},
 		Storage: StorageConfig{
