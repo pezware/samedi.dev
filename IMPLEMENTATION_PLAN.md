@@ -312,57 +312,173 @@ sessions per plan, sessions across different plans, and limit parameter behavior
 
 ## Stage 5: Stats & Reporting
 
-**Goal:** Visualize learning progress and export reports
+**Goal:** Visualize learning progress with stats dashboard and enable markdown
+report export
 
-**Status:** Not Started
+**Status:** In Progress
 
 **Success Criteria:**
 
-- [ ] TUI stats dashboard shows total hours, streaks, progress
-- [ ] Can export markdown reports
-- [ ] Streak calculation works correctly
-- [ ] Progress bars and charts display correctly
-- [ ] All tests pass
+- [ ] Stats calculator computes totals, averages, and streaks correctly
+- [ ] Stats service integrates with session/plan repositories
+- [ ] CLI stats command provides text and JSON output
+- [ ] TUI stats dashboard shows interactive visualizations
+- [ ] Can export comprehensive markdown reports
+- [ ] All tests pass (150+ tests, coverage >85%)
 - [ ] `make check` succeeds
 
 **Deliverables:**
 
-### 5.1 Stats Calculator
+### 5.1 Stats Domain Models & Calculator
 
-- [ ] `internal/stats/calculator.go` - Aggregation logic
-- [ ] `internal/stats/streak.go` - Streak detection
-- [ ] `internal/stats/calculator_test.go` - Calculator tests
+- [ ] `internal/stats/types.go` - Domain types (~150 lines)
+  - TotalStats (total hours, session count, streak, active plans)
+  - PlanStats (plan-specific hours, progress, session count)
+  - DailyStats (date, duration, session count)
+  - TimeRange (start, end, preset filters)
+- [ ] `internal/stats/calculator.go` - Aggregation logic (~250 lines)
+  - CalculateTotalStats, CalculatePlanStats, CalculateDailyStats
+  - AggregateByPlan helper
+  - sumDurations, countSessions, calculateProgress helpers
+- [ ] `internal/stats/streak.go` - Streak detection (~180 lines)
+  - CalculateStreak (current and longest)
+  - DetectStreakBreaks, GetActiveDays
+  - Timezone and overnight session handling
+- [ ] `internal/stats/types_test.go` - Domain tests (15 tests, ~200 lines)
+- [ ] `internal/stats/calculator_test.go` - Calculator tests (25 tests, ~400 lines)
+- [ ] `internal/stats/streak_test.go` - Streak tests (20 tests, ~350 lines)
+
+**Note:** Pure calculation functions with comprehensive edge case coverage.
+Test coverage target: >85%
 
 ### 5.2 Stats Service
 
-- [ ] `internal/stats/service.go` - Business logic
-- [ ] `internal/stats/service_test.go` - Service tests
+- [ ] `internal/stats/service.go` - Business logic (~280 lines)
+  - GetTotalStats, GetPlanStats, GetDailyStats, GetAllPlanStats
+  - Repository integration (session + plan)
+  - Error handling and validation
+- [ ] `internal/stats/service_test.go` - Service tests (30 tests, ~600 lines)
+  - All service methods with various time ranges
+  - Repository error handling
+  - Empty results handling
+  - Mock repositories
 
-### 5.3 TUI Stats Dashboard
+**Note:** Service orchestrates calculator functions with repository data loading.
+Includes context-based operations for cancellation.
 
-- [ ] `internal/tui/stats.go` - Bubble Tea stats model
-- [ ] `internal/tui/components/progress.go` - Progress bar
-- [ ] `internal/tui/components/chart.go` - Simple charts
-- [ ] `internal/tui/stats_test.go` - TUI tests
+### 5.3 CLI Stats Command (Text Output)
 
-### 5.4 Report Exporter
+- [ ] `internal/cli/stats.go` - Stats command (~320 lines)
+  - Time range flags (--today, --this-week, --this-month, --since)
+  - JSON output support (--json)
+  - Text formatting with ASCII progress bars
+  - Error handling
+- [ ] `internal/cli/stats_helpers.go` - Formatting helpers (~180 lines)
+  - formatTotalStats, formatPlanStats, formatDailyStats
+  - renderProgressBar (ASCII art)
+  - formatDuration (e.g., "1h 30m")
+- [ ] `internal/cli/stats_test.go` - CLI tests (18 tests, ~250 lines)
+  - Command structure and flags
+  - Text and JSON output validation
+  - Time range parsing
+  - Error cases
+- [ ] `internal/cli/root.go` - Updated (~40 lines added)
+  - getStatsService() helper for dependency injection
+  - Register stats command
 
-- [ ] `internal/stats/exporter.go` - Markdown generation
-- [ ] `internal/stats/exporter_test.go` - Exporter tests
+**Note:** Text-based output for terminal use, JSON for scripting/automation.
+Progress bars use ASCII characters for compatibility.
 
-### 5.5 CLI Commands
+### 5.4 TUI Stats Dashboard
 
-- [ ] `internal/cli/stats.go` - `samedi stats` command
-- [ ] `internal/cli/report.go` - `samedi report` command
-- [ ] `internal/cli/stats_test.go` - CLI tests
+- [ ] `internal/tui/stats.go` - Bubble Tea model (~380 lines)
+  - Interactive dashboard with keyboard navigation
+  - Time range toggle (today/week/month/all)
+  - Refresh command
+  - View modes: overview, plan detail, daily breakdown
+- [ ] `internal/tui/components/progress.go` - Progress bar (~120 lines)
+  - Styled progress bars with Lipgloss
+  - Color-coded (green/yellow/red based on progress)
+  - Percentage labels
+- [ ] `internal/tui/components/table.go` - Table component (~150 lines)
+  - Aligned columns with headers
+  - Border rendering
+  - Style support
+- [ ] `internal/tui/stats_test.go` - TUI tests (12 tests, ~200 lines)
+  - Model initialization
+  - Keyboard input handling
+  - View rendering (text mode)
+  - Time range switching
+- [ ] `internal/cli/stats.go` - Updated (~50 lines added)
+  - Add --tui flag for interactive mode
+  - Initialize Bubble Tea program
+
+**Note:** Interactive TUI provides rich visualization. Keyboard-driven navigation
+(vim-style j/k). Tested in text mode for reproducibility.
+
+**Dependencies to Add:**
+
+- `github.com/charmbracelet/bubbletea` - TUI framework
+- `github.com/charmbracelet/lipgloss` - TUI styling
+
+### 5.5 Report Exporter & Command
+
+- [ ] `internal/stats/exporter.go` - Report generator (~280 lines)
+  - ExportMarkdown method
+  - Section generators (summary, plans, sessions, stats)
+  - Template-based rendering
+  - Filtering support (plan, date range)
+- [ ] `templates/report-markdown.md` - Report template (~60 lines)
+  - Go template with placeholders
+  - Markdown formatting
+- [ ] `internal/stats/exporter_test.go` - Exporter tests (20 tests, ~350 lines)
+  - Full report generation
+  - Plan-specific reports
+  - Date range filtering
+  - Markdown validation
+  - Golden file tests
+- [ ] `internal/cli/report.go` - Report command (~180 lines)
+  - Format selection (markdown, future: json, html)
+  - Filtering flags (--plan, --this-week, --since)
+  - Output to stdout or file (--output)
+  - Error handling
+- [ ] `internal/cli/report_test.go` - Report CLI tests (10 tests, ~150 lines)
+  - Command structure and flags
+  - Output destinations (stdout, file)
+  - Filtering options
+  - Error handling
+
+**Note:** Template-based approach allows easy customization. Reports are
+pipeable for further processing. Golden file tests ensure consistent output.
 
 **Tests:**
 
-- Aggregation calculations (total hours, session counts)
-- Streak detection (gaps, multi-day streaks)
-- Progress percentage calculations
-- Markdown report generation
-- TUI rendering (text mode tests)
+- Aggregation calculations (sum, average, count) - 25 tests
+- Streak detection (consecutive days, gaps, overnight) - 20 tests
+- Progress percentage calculations - 10 tests
+- Service integration with repositories - 30 tests
+- CLI text and JSON output formatting - 18 tests
+- TUI rendering and keyboard navigation - 12 tests
+- Markdown report generation and validation - 20 tests
+- Template rendering edge cases - 15 tests
+
+**Total:** 150+ tests, ~2,450 lines of test code, ~3,200 lines of implementation
+
+**Implementation Timeline:**
+
+- **Phase 1** (Days 1-5): Stats domain models & calculator (60 tests)
+- **Phase 2** (Days 6-10): Stats service layer (30 tests)
+- **Phase 3** (Days 11-15): CLI stats command (18 tests)
+- **Phase 4** (Days 16-22): TUI stats dashboard (12 tests)
+- **Phase 5** (Days 23-27): Report exporter & command (30 tests)
+
+**Git Branches:**
+
+- `feat/stage-5-stats-calculator` (Phase 1)
+- `feat/stage-5-stats-service` (Phase 2)
+- `feat/stage-5-cli-stats` (Phase 3)
+- `feat/stage-5-tui-dashboard` (Phase 4)
+- `feat/stage-5-report-exporter` (Phase 5)
 
 ---
 
