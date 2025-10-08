@@ -106,12 +106,16 @@ Examples:
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "ID\tTITLE\tSTATUS\tPROGRESS\tHOURS")
 
-			for _, p := range plans {
-				fmt.Fprintf(w, "%s\t%s\t%s\t-\t%.1fh\n",
-					p.ID,
-					truncate(p.Title, 40),
-					formatStatus(p.Status),
-					p.TotalHours,
+			for _, record := range plans {
+				// Calculate progress by loading full plan
+				progress := calculateProgress(svc, record.ID)
+
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%.1fh\n",
+					record.ID,
+					truncate(record.Title, 40),
+					formatStatus(record.Status),
+					progress,
+					record.TotalHours,
 				)
 			}
 
@@ -148,6 +152,31 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// calculateProgress computes progress as "percentage (completed/total)".
+// Returns "-" if the plan cannot be loaded or has no chunks.
+func calculateProgress(svc *plan.Service, planID string) string {
+	// Load full plan to get chunks
+	p, err := svc.Get(context.Background(), planID)
+	if err != nil {
+		return "-"
+	}
+
+	totalChunks := len(p.Chunks)
+	if totalChunks == 0 {
+		return "0% (0/0)"
+	}
+
+	completedChunks := 0
+	for _, chunk := range p.Chunks {
+		if chunk.Status == plan.StatusCompleted {
+			completedChunks++
+		}
+	}
+
+	percentage := int(float64(completedChunks) / float64(totalChunks) * 100)
+	return fmt.Sprintf("%d%% (%d/%d)", percentage, completedChunks, totalChunks)
 }
 
 // planShowCmd creates the `samedi plan show` subcommand.
