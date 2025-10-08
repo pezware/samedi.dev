@@ -287,6 +287,59 @@ func (s *Service) GetTotalDuration(ctx context.Context, planID string) (int, err
 	return totalMinutes, nil
 }
 
+// GetChunkSessions retrieves all sessions for a specific chunk within a plan.
+func (s *Service) GetChunkSessions(ctx context.Context, planID, chunkID string) ([]*Session, error) {
+	if planID == "" {
+		return nil, fmt.Errorf("plan ID cannot be empty")
+	}
+	if chunkID == "" {
+		return nil, fmt.Errorf("chunk ID cannot be empty")
+	}
+
+	// Get all sessions for the plan
+	sessions, err := s.repo.GetByPlan(ctx, planID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions: %w", err)
+	}
+
+	// Filter to only sessions for this chunk
+	var chunkSessions []*Session
+	for _, session := range sessions {
+		if session.ChunkID == chunkID {
+			chunkSessions = append(chunkSessions, session)
+		}
+	}
+
+	return chunkSessions, nil
+}
+
+// ChunkStats contains statistics about sessions for a specific chunk.
+type ChunkStats struct {
+	SessionCount  int // Total number of sessions for this chunk
+	TotalDuration int // Total time spent in minutes (completed sessions only)
+}
+
+// GetChunkStats returns statistics about sessions for a specific chunk.
+func (s *Service) GetChunkStats(ctx context.Context, planID, chunkID string) (*ChunkStats, error) {
+	sessions, err := s.GetChunkSessions(ctx, planID, chunkID)
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &ChunkStats{
+		SessionCount: len(sessions),
+	}
+
+	// Calculate total duration from completed sessions
+	for _, session := range sessions {
+		if !session.IsActive() {
+			stats.TotalDuration += session.Duration
+		}
+	}
+
+	return stats, nil
+}
+
 // checkAndCompleteChunk checks if a chunk should be auto-completed based on session time.
 // If total session time for the chunk >= chunk duration, marks it as completed.
 func (s *Service) checkAndCompleteChunk(ctx context.Context, planID, chunkID string) error {

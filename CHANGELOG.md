@@ -63,6 +63,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helper functions: formatStatus, formatDuration, truncate, formatProgress
   - 20 CLI tests (command structure, argument validation, helper functions)
   - Complete plan management workflow from CLI
+- **Stage 3: Session Tracking - Smart Inference & Enhanced Display**
+  - Smart inference: automatic chunk/plan status updates based on session activity
+    - Starting a session marks chunk as "in-progress" if "not-started"
+    - Stopping a session auto-completes chunk when total time ≥ chunk duration
+    - Plan status recalculated based on chunk statuses (not-started → in-progress → completed)
+    - Best-effort updates: session operations succeed even if status update fails
+  - Session service methods: `GetChunkSessions()`, `GetChunkStats()` with `ChunkStats` struct
+  - Shared chunk display utility (`internal/cli/chunk_display.go`) with comprehensive formatting
+  - `samedi show <plan-id> <chunk-id>` command for detailed chunk information
+    - Title, ID, status with icons (○ not-started, ◐ in-progress, ● completed, ⊘ skipped)
+    - Duration and progress (X/Y min, Z%)
+    - Session count and recent session history (last 3)
+    - Objectives, resources, and deliverables
+  - Enhanced `samedi status` to display full chunk details when session has active chunk
+  - Enhanced `samedi start <plan-id> <chunk-id>` to show progress and session history
+  - All smart inference updates properly tested with mock services
 - Dependency: `github.com/yuin/goldmark` v1.7.13 for markdown parsing
 
 ### Changed

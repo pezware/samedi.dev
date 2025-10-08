@@ -44,7 +44,7 @@ Examples:
 
 			// Check if there's an active session
 			if status.Active != nil {
-				displayActiveSession(status.Active)
+				displayActiveSession(cmd, status.Active)
 			} else {
 				displayNoActiveSession(status.Recent)
 			}
@@ -55,7 +55,7 @@ Examples:
 }
 
 // displayActiveSession shows information about the active session.
-func displayActiveSession(sess *session.Session) {
+func displayActiveSession(cmd *cobra.Command, sess *session.Session) {
 	fmt.Printf("→ Active session: %s", sess.PlanID)
 	if sess.ChunkID != "" {
 		fmt.Printf(" (%s)", sess.ChunkID)
@@ -67,6 +67,16 @@ func displayActiveSession(sess *session.Session) {
 
 	if sess.Notes != "" {
 		fmt.Printf("  Notes: %s\n", sess.Notes)
+	}
+
+	// Display chunk details if this session has a chunk
+	if sess.ChunkID != "" {
+		info, err := getChunkDisplayInfo(cmd, sess.PlanID, sess.ChunkID)
+		if err == nil {
+			fmt.Println()
+			displayChunkDetails(info)
+		}
+		// Silently ignore errors - chunk display is optional
 	}
 
 	// Check if session has been running for a very long time
