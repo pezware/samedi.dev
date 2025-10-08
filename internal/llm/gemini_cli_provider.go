@@ -1,9 +1,11 @@
 // Copyright (c) 2025 Samedi Contributors
 // SPDX-License-Identifier: MIT
 
+//nolint:dupl // Similar structure to other CLI providers is intentional
 package llm
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -45,15 +47,17 @@ func NewGeminiCLIProvider(config *Config) *GeminiCLIProvider {
 	}
 }
 
-// Call sends a prompt to the gemini CLI and returns the response.
+// Call sends a prompt to the gemini CLI via stdin and returns the response.
+// Uses stdin instead of -p flag to avoid triggering agentic tool usage.
 func (g *GeminiCLIProvider) Call(ctx context.Context, prompt string) (string, error) {
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(ctx, g.config.Timeout)
 	defer cancel()
 
 	// Build command arguments
-	// gemini -p "prompt" -m <model>
-	args := []string{"-p", prompt}
+	// echo "prompt" | gemini -m <model>
+	// Note: We use stdin instead of -p to get pure text output without tools
+	args := []string{}
 
 	// Add model if specified
 	if g.config.Model != "" {
@@ -66,6 +70,9 @@ func (g *GeminiCLIProvider) Call(ctx context.Context, prompt string) (string, er
 	// Execute CLI command
 	// #nosec G204 - command is user-configured in config, intentionally dynamic
 	cmd := exec.CommandContext(ctx, g.config.Command, args...)
+
+	// Pass prompt via stdin (headless mode without tools)
+	cmd.Stdin = bytes.NewBufferString(prompt)
 
 	// Capture output
 	output, err := cmd.CombinedOutput()

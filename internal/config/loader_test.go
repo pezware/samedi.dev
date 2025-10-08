@@ -31,7 +31,7 @@ func TestLoad_NoConfigFile(t *testing.T) {
 	require.NotNil(t, cfg)
 
 	// Should have defaults
-	assert.Equal(t, "llm", cfg.LLM.Provider)
+	assert.Equal(t, "auto", cfg.LLM.Provider)
 }
 
 func TestSave_And_Load(t *testing.T) {

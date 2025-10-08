@@ -7,12 +7,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/pezware/samedi.dev/internal/llm"
+	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/storage"
 )
 
@@ -25,6 +27,7 @@ type Service struct {
 	llmProvider    llm.Provider
 	fs             *storage.FilesystemStorage
 	paths          *storage.Paths
+	sessionService *session.Service // Optional - for session integration
 }
 
 // NewService creates a new plan service with all required dependencies.
@@ -44,12 +47,19 @@ func NewService(
 	}
 }
 
+// SetSessionService sets the session service for session integration.
+// This is optional and used for displaying session history in plan views.
+func (s *Service) SetSessionService(sessionService *session.Service) {
+	s.sessionService = sessionService
+}
+
 // CreateRequest contains parameters for creating a new plan.
 type CreateRequest struct {
 	Topic      string
 	TotalHours float64
 	Level      string // beginner, intermediate, advanced
 	Goals      string // Optional specific goals
+	Debug      bool   // If true, log full prompt and response
 }
 
 // Create generates a new learning plan using LLM and saves it to both stores.
@@ -74,16 +84,43 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (*Plan, error) 
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
 
+	// Debug: Show full prompt
+	if req.Debug {
+		fmt.Fprintf(os.Stderr, "\n→ DEBUG: Prompt sent to LLM (%d chars):\n", len(prompt))
+		fmt.Fprintf(os.Stderr, "---BEGIN PROMPT---\n%s\n---END PROMPT---\n\n", prompt)
+	}
+
 	// Call LLM to generate plan
 	llmOutput, err := s.llmProvider.Call(ctx, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("LLM call failed: %w", err)
 	}
 
+	// Debug: Show raw LLM response
+	if req.Debug {
+		fmt.Fprintf(os.Stderr, "→ DEBUG: Raw LLM response (%d chars):\n", len(llmOutput))
+		fmt.Fprintf(os.Stderr, "---BEGIN RESPONSE---\n%s\n---END RESPONSE---\n\n", llmOutput)
+	}
+
+	// Clean LLM output (strip markdown code fences, etc.)
+	cleanedOutput := cleanLLMOutput(llmOutput)
+
+	// Debug: Show cleaned output if different
+	if req.Debug && cleanedOutput != llmOutput {
+		fmt.Fprintf(os.Stderr, "→ DEBUG: Cleaned output (%d chars, removed %d chars):\n",
+			len(cleanedOutput), len(llmOutput)-len(cleanedOutput))
+		fmt.Fprintf(os.Stderr, "---BEGIN CLEANED---\n%s\n---END CLEANED---\n\n", cleanedOutput)
+	}
+
 	// Parse LLM output into Plan struct
-	plan, err := Parse(llmOutput)
+	plan, err := Parse(cleanedOutput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse LLM output: %w", err)
+		// Show preview of output to help debug parsing issues
+		preview := cleanedOutput
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return nil, fmt.Errorf("failed to parse LLM output: %w\nOutput preview: %s", err, preview)
 	}
 
 	// Ensure plan ID matches
@@ -203,11 +240,34 @@ func (s *Service) GetMetadata(ctx context.Context, id string) (*storage.PlanReco
 }
 
 // GetRecentSessions retrieves the most recent learning sessions for a plan.
-// Stage 3 implementation: Will query SessionRepository once sessions are implemented.
-// Currently returns empty slice as placeholder.
-func (s *Service) GetRecentSessions(_ context.Context, _ string, _ int) ([]map[string]interface{}, error) {
-	// Stage 3: Will query SessionRepository
-	return []map[string]interface{}{}, nil
+// Returns session data as maps for display purposes.
+func (s *Service) GetRecentSessions(ctx context.Context, planID string, limit int) ([]map[string]interface{}, error) {
+	// If no session service is configured, return empty
+	if s.sessionService == nil {
+		return []map[string]interface{}{}, nil
+	}
+
+	// Get sessions from session service
+	sessions, err := s.sessionService.List(ctx, planID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions: %w", err)
+	}
+
+	// Convert sessions to map format for display
+	result := make([]map[string]interface{}, len(sessions))
+	for i, sess := range sessions {
+		result[i] = map[string]interface{}{
+			"id":         sess.ID,
+			"chunk_id":   sess.ChunkID,
+			"start_time": sess.StartTime,
+			"end_time":   sess.EndTime,
+			"duration":   sess.Duration,
+			"notes":      sess.Notes,
+			"is_active":  sess.IsActive(),
+		}
+	}
+
+	return result, nil
 }
 
 // GetCardCount returns the total number of flashcards for a plan.
@@ -314,4 +374,145 @@ func slugify(s string) string {
 	s = reg.ReplaceAllString(s, "-")
 
 	return s
+}
+
+// cleanLLMOutput strips markdown code fences, preamble text, and extra whitespace from LLM output.
+// Many LLMs wrap their output in ```markdown...``` blocks or add introductory text before the actual plan.
+func cleanLLMOutput(output string) string {
+	output = strings.TrimSpace(output)
+
+	// Remove markdown code fences with optional language specifier
+	// Pattern: ```markdown\n ... \n``` or ```\n ... \n```
+	if strings.HasPrefix(output, "```") {
+		lines := strings.Split(output, "\n")
+		if len(lines) > 2 {
+			// Remove first line (```markdown or ```)
+			lines = lines[1:]
+			// Remove last line if it's ```
+			if strings.TrimSpace(lines[len(lines)-1]) == "```" {
+				lines = lines[:len(lines)-1]
+			}
+			output = strings.Join(lines, "\n")
+		}
+	}
+
+	output = strings.TrimSpace(output)
+
+	// Strip any preamble text before the YAML frontmatter delimiter
+	// Some LLMs (like Codex) echo the prompt and add thinking tokens before the actual plan.
+	// We need to find the LAST occurrence of "---" that starts valid YAML frontmatter.
+	if !strings.HasPrefix(output, "---") {
+		lines := strings.Split(output, "\n")
+
+		// Search backwards for "---" followed by YAML frontmatter (id: or title:)
+		// This avoids matching "---" in example code or echoed prompts
+		for i := len(lines) - 1; i >= 0; i-- {
+			if strings.TrimSpace(lines[i]) == "---" {
+				// Check if next line looks like YAML frontmatter
+				if i+1 < len(lines) {
+					nextLine := strings.TrimSpace(lines[i+1])
+					if strings.HasPrefix(nextLine, "id:") || strings.HasPrefix(nextLine, "title:") {
+						// Found real frontmatter!
+						output = strings.Join(lines[i:], "\n")
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return strings.TrimSpace(output)
+}
+
+// GetChunk fetches a specific chunk from a plan by ID.
+func (s *Service) GetChunk(ctx context.Context, planID, chunkID string) (*Chunk, error) {
+	// Load the plan
+	plan, err := s.Get(ctx, planID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load plan: %w", err)
+	}
+
+	// Find the chunk
+	for i := range plan.Chunks {
+		if plan.Chunks[i].ID == chunkID {
+			return &plan.Chunks[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("chunk not found: %s in plan %s", chunkID, planID)
+}
+
+// UpdateChunkStatus updates a chunk's status in the plan and recalculates plan status.
+// This is used for smart inference based on session tracking.
+func (s *Service) UpdateChunkStatus(ctx context.Context, planID, chunkID string, newStatus Status) error {
+	// Load the plan
+	plan, err := s.Get(ctx, planID)
+	if err != nil {
+		return fmt.Errorf("failed to load plan: %w", err)
+	}
+
+	// Find and update the chunk
+	chunkFound := false
+	for i := range plan.Chunks {
+		if plan.Chunks[i].ID == chunkID {
+			plan.Chunks[i].Status = newStatus
+			chunkFound = true
+			break
+		}
+	}
+
+	if !chunkFound {
+		return fmt.Errorf("chunk not found: %s in plan %s", chunkID, planID)
+	}
+
+	// Recalculate plan status based on chunks
+	plan.Status = s.inferPlanStatus(plan)
+	plan.UpdatedAt = time.Now()
+
+	// Save the updated plan
+	if err := s.Update(ctx, plan); err != nil {
+		return fmt.Errorf("failed to update plan: %w", err)
+	}
+
+	return nil
+}
+
+// inferPlanStatus determines the plan's overall status based on its chunks.
+// Logic:
+// - If any chunk is in-progress or completed, plan is in-progress
+// - If all chunks are completed, plan is completed
+// - Otherwise plan is not-started
+func (s *Service) inferPlanStatus(plan *Plan) Status {
+	if len(plan.Chunks) == 0 {
+		return StatusNotStarted
+	}
+
+	hasInProgress := false
+	hasCompleted := false
+	allCompleted := true
+
+	for _, chunk := range plan.Chunks {
+		switch chunk.Status {
+		case StatusInProgress:
+			hasInProgress = true
+			allCompleted = false
+		case StatusCompleted:
+			hasCompleted = true
+		default:
+			allCompleted = false
+		}
+	}
+
+	// All chunks completed
+	if allCompleted {
+		return StatusCompleted
+	}
+
+	// Any chunk started
+	if hasInProgress || hasCompleted {
+		return StatusInProgress
+	}
+
+	// No chunks started
+	return StatusNotStarted
 }

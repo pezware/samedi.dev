@@ -33,9 +33,9 @@ func NewCodexProvider(config *Config) *CodexProvider {
 	if config.Command == "" {
 		config.Command = "codex"
 	}
-	if config.Model == "" {
-		config.Model = "o3"
-	}
+	// Note: We intentionally don't set a default model.
+	// If config.Model is empty, Codex CLI will use its own default (currently GPT-5-Codex).
+	// This allows the CLI to always use the latest/best available model.
 	if config.Timeout == 0 {
 		config.Timeout = DefaultConfig().Timeout
 	}

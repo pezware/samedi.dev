@@ -16,7 +16,7 @@ func TestNewCodexProvider_Defaults(t *testing.T) {
 	provider := NewCodexProvider(&Config{})
 
 	assert.Equal(t, "codex", provider.config.Command)
-	assert.Equal(t, "o3", provider.config.Model)
+	assert.Equal(t, "", provider.config.Model) // Empty lets Codex use its default
 	assert.Equal(t, 120*time.Second, provider.config.Timeout)
 }
 

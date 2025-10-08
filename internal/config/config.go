@@ -79,10 +79,10 @@ func DefaultConfig() *Config {
 			Timezone: time.Local.String(),
 		},
 		LLM: LLMConfig{
-			Provider:       "llm",
-			CLICommand:     "llm",
-			DefaultModel:   "claude-3-5-sonnet",
-			TimeoutSeconds: 120,
+			Provider:       "auto",
+			CLICommand:     "",
+			DefaultModel:   "", // Empty allows each provider to use its own default
+			TimeoutSeconds: 300,
 		},
 		Storage: StorageConfig{
 			DataDir:        filepath.Join(homeDir, ".samedi"),
