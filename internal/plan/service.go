@@ -202,6 +202,22 @@ func (s *Service) GetMetadata(ctx context.Context, id string) (*storage.PlanReco
 	return record, nil
 }
 
+// GetRecentSessions retrieves the most recent learning sessions for a plan.
+// Stage 3 implementation: Will query SessionRepository once sessions are implemented.
+// Currently returns empty slice as placeholder.
+func (s *Service) GetRecentSessions(_ context.Context, _ string, _ int) ([]map[string]interface{}, error) {
+	// Stage 3: Will query SessionRepository
+	return []map[string]interface{}{}, nil
+}
+
+// GetCardCount returns the total number of flashcards for a plan.
+// Stage 4 implementation: Will query CardRepository once flashcards are implemented.
+// Currently returns 0 as placeholder.
+func (s *Service) GetCardCount(_ context.Context, _ string) (int, error) {
+	// Stage 4: Will query CardRepository
+	return 0, nil
+}
+
 // validateCreateRequest checks if the create request has valid parameters.
 func (s *Service) validateCreateRequest(req CreateRequest) error {
 	if strings.TrimSpace(req.Topic) == "" {

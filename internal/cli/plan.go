@@ -198,19 +198,26 @@ func calculateProgress(svc *plan.Service, planID string) string {
 
 // planShowCmd creates the `samedi plan show` subcommand.
 func planShowCmd() *cobra.Command {
-	var showChunks bool
+	var (
+		showChunks   bool
+		showSessions bool
+		showCards    bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "show <plan-id>",
 		Short: "Show plan details and progress",
 		Long: `Display detailed information about a specific plan.
 
-Shows plan metadata, progress, and recent chunks by default.
-Use --chunks to display all chunks.
+Shows plan metadata, progress, recent chunks, session history, and flashcard count.
+Use --chunks to display all chunks, --sessions for full session history,
+or --cards for detailed card statistics.
 
 Examples:
   samedi plan show rust-async
-  samedi plan show french-b1 --chunks`,
+  samedi plan show french-b1 --chunks
+  samedi plan show french-b1 --sessions
+  samedi plan show french-b1 --cards`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
@@ -226,65 +233,17 @@ Examples:
 				exitWithError("Failed to get plan: %v", err)
 			}
 
-			// Display plan info
-			fmt.Printf("%s\n", plan.Title)
-			fmt.Printf("Status: %s | Progress: %s\n",
-				formatStatus(string(plan.Status)),
-				formatProgress(plan),
-			)
-			fmt.Printf("Created: %s | Updated: %s\n",
-				plan.CreatedAt.Format("2006-01-02"),
-				plan.UpdatedAt.Format("2006-01-02"),
-			)
-			fmt.Printf("Total: %.1f hours", plan.TotalHours)
-			if len(plan.Tags) > 0 {
-				fmt.Printf(" | Tags: %v", plan.Tags)
-			}
-			fmt.Println()
-
-			// Show chunks
-			if showChunks {
-				fmt.Println("\nChunks:")
-				for i, chunk := range plan.Chunks {
-					fmt.Printf("%d. %s (%s) - %s\n",
-						i+1,
-						chunk.Title,
-						formatDuration(chunk.Duration),
-						formatStatus(string(chunk.Status)),
-					)
-				}
-			} else {
-				// Show recent chunks (first 5)
-				fmt.Println("\nRecent chunks:")
-				maxChunks := 5
-				if len(plan.Chunks) < maxChunks {
-					maxChunks = len(plan.Chunks)
-				}
-				for i := 0; i < maxChunks; i++ {
-					chunk := plan.Chunks[i]
-					fmt.Printf("  %s %s (%s)\n",
-						chunkStatusIcon(chunk.Status),
-						chunk.Title,
-						formatDuration(chunk.Duration),
-					)
-				}
-				if len(plan.Chunks) > maxChunks {
-					fmt.Printf("  ... and %d more chunks\n", len(plan.Chunks)-maxChunks)
-				}
-			}
-
-			// Next steps
-			fmt.Println()
-			nextChunk := plan.NextChunk()
-			if nextChunk != nil {
-				fmt.Printf("Next: samedi start %s %s\n", planID, nextChunk.ID)
-			} else {
-				fmt.Println("All chunks completed!")
-			}
+			// Display plan details
+			displayPlanSummary(plan)
+			displayPlanExtras(svc, planID, showSessions, showCards)
+			displayPlanChunks(plan, showChunks)
+			displayNextSteps(plan, planID)
 		},
 	}
 
 	cmd.Flags().BoolVar(&showChunks, "chunks", false, "show all chunks")
+	cmd.Flags().BoolVar(&showSessions, "sessions", false, "show full session history")
+	cmd.Flags().BoolVar(&showCards, "cards", false, "show detailed flashcard statistics")
 
 	return cmd
 }
@@ -383,6 +342,108 @@ func formatDuration(minutes int) string {
 		return fmt.Sprintf("%.0fh", hours)
 	}
 	return fmt.Sprintf("%.1fh", hours)
+}
+
+// displayPlanSummary shows the plan metadata (title, status, dates, etc).
+func displayPlanSummary(plan *plan.Plan) {
+	fmt.Printf("%s\n", plan.Title)
+	fmt.Printf("Status: %s | Progress: %s\n",
+		formatStatus(string(plan.Status)),
+		formatProgress(plan),
+	)
+	fmt.Printf("Created: %s | Updated: %s\n",
+		plan.CreatedAt.Format("2006-01-02"),
+		plan.UpdatedAt.Format("2006-01-02"),
+	)
+	fmt.Printf("Total: %.1f hours", plan.TotalHours)
+	if len(plan.Tags) > 0 {
+		fmt.Printf(" | Tags: %v", plan.Tags)
+	}
+	fmt.Println()
+}
+
+// displayPlanExtras shows session history and flashcard count if available.
+func displayPlanExtras(svc *plan.Service, planID string, showSessions, showCards bool) {
+	ctx := context.Background()
+
+	// Get session and card data (Stage 3/4 - currently returns empty/zero)
+	sessions, err := svc.GetRecentSessions(ctx, planID, 5)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to get sessions: %v\n", err)
+		sessions = []map[string]interface{}{}
+	}
+
+	cardCount, err := svc.GetCardCount(ctx, planID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to get card count: %v\n", err)
+		cardCount = 0
+	}
+
+	// Display flashcard count
+	if cardCount > 0 || showCards {
+		fmt.Printf("Flashcards: %d cards", cardCount)
+		if cardCount > 0 {
+			fmt.Printf(" (use --cards for details)")
+		}
+		fmt.Println()
+	}
+
+	// Display session history
+	if len(sessions) > 0 || showSessions {
+		fmt.Printf("\nRecent Sessions:\n")
+		if len(sessions) == 0 {
+			fmt.Println("  No sessions yet")
+		} else {
+			for _, sess := range sessions {
+				// Stage 3: Will format session data when implemented
+				_ = sess
+			}
+		}
+	}
+}
+
+// displayPlanChunks shows either all chunks or a summary of recent chunks.
+func displayPlanChunks(p *plan.Plan, showAll bool) {
+	if showAll {
+		fmt.Println("\nChunks:")
+		for i, chunk := range p.Chunks {
+			fmt.Printf("%d. %s (%s) - %s\n",
+				i+1,
+				chunk.Title,
+				formatDuration(chunk.Duration),
+				formatStatus(string(chunk.Status)),
+			)
+		}
+	} else {
+		// Show recent chunks (first 5)
+		fmt.Println("\nRecent chunks:")
+		maxChunks := 5
+		if len(p.Chunks) < maxChunks {
+			maxChunks = len(p.Chunks)
+		}
+		for i := 0; i < maxChunks; i++ {
+			chunk := p.Chunks[i]
+			fmt.Printf("  %s %s (%s)\n",
+				chunkStatusIcon(chunk.Status),
+				chunk.Title,
+				formatDuration(chunk.Duration),
+			)
+		}
+		if len(p.Chunks) > maxChunks {
+			fmt.Printf("  ... and %d more chunks\n", len(p.Chunks)-maxChunks)
+		}
+	}
+}
+
+// displayNextSteps shows the next recommended action for the plan.
+func displayNextSteps(p *plan.Plan, planID string) {
+	fmt.Println()
+	nextChunk := p.NextChunk()
+	if nextChunk != nil {
+		fmt.Printf("Next: samedi start %s %s\n", planID, nextChunk.ID)
+	} else {
+		fmt.Println("All chunks completed!")
+	}
 }
 
 // planArchiveCmd creates the `samedi plan archive` subcommand.
