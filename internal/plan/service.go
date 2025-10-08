@@ -398,16 +398,25 @@ func cleanLLMOutput(output string) string {
 
 	output = strings.TrimSpace(output)
 
-	// Strip any preamble text before the first frontmatter delimiter
-	// LLMs often add explanatory text like "I'll create a plan..." before the actual markdown
+	// Strip any preamble text before the YAML frontmatter delimiter
+	// Some LLMs (like Codex) echo the prompt and add thinking tokens before the actual plan.
+	// We need to find the LAST occurrence of "---" that starts valid YAML frontmatter.
 	if !strings.HasPrefix(output, "---") {
-		// Find the first occurrence of "---" at the start of a line
 		lines := strings.Split(output, "\n")
-		for i, line := range lines {
-			if strings.TrimSpace(line) == "---" {
-				// Found the frontmatter start, keep everything from here
-				output = strings.Join(lines[i:], "\n")
-				break
+
+		// Search backwards for "---" followed by YAML frontmatter (id: or title:)
+		// This avoids matching "---" in example code or echoed prompts
+		for i := len(lines) - 1; i >= 0; i-- {
+			if strings.TrimSpace(lines[i]) == "---" {
+				// Check if next line looks like YAML frontmatter
+				if i+1 < len(lines) {
+					nextLine := strings.TrimSpace(lines[i+1])
+					if strings.HasPrefix(nextLine, "id:") || strings.HasPrefix(nextLine, "title:") {
+						// Found real frontmatter!
+						output = strings.Join(lines[i:], "\n")
+						break
+					}
+				}
 			}
 		}
 	}
