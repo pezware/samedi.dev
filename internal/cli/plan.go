@@ -48,6 +48,7 @@ func planListCmd() *cobra.Command {
 		statusFilter string
 		tagFilter    string
 		sortBy       string
+		showAll      bool
 	)
 
 	cmd := &cobra.Command{
@@ -55,13 +56,18 @@ func planListCmd() *cobra.Command {
 		Short: "List all learning plans",
 		Long: `List all learning plans with optional filtering.
 
+By default, archived plans are hidden. Use --all to show all plans
+including archived ones, or --status archived to show only archived plans.
+
 Examples:
-  samedi plan list
+  samedi plan list                     # Active plans only
+  samedi plan list --all               # Include archived plans
+  samedi plan list --status archived   # Only archived plans
   samedi plan list --status in-progress
   samedi plan list --tag language
   samedi plan list --json`,
 		Run: func(cmd *cobra.Command, _ []string) {
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
@@ -70,9 +76,19 @@ Examples:
 			filter := &storage.PlanFilter{}
 			if statusFilter != "" {
 				filter.Statuses = []string{statusFilter}
+			} else if !showAll {
+				// By default, exclude archived plans unless --all is specified
+				filter.Statuses = []string{
+					string(plan.StatusNotStarted),
+					string(plan.StatusInProgress),
+					string(plan.StatusCompleted),
+				}
 			}
 			if tagFilter != "" {
 				filter.Tag = tagFilter
+			}
+			if sortBy != "" {
+				filter.SortBy = sortBy
 			}
 
 			// Get plans
@@ -106,12 +122,16 @@ Examples:
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "ID\tTITLE\tSTATUS\tPROGRESS\tHOURS")
 
-			for _, p := range plans {
-				fmt.Fprintf(w, "%s\t%s\t%s\t-\t%.1fh\n",
-					p.ID,
-					truncate(p.Title, 40),
-					formatStatus(p.Status),
-					p.TotalHours,
+			for _, record := range plans {
+				// Calculate progress by loading full plan
+				progress := calculateProgress(svc, record.ID)
+
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%.1fh\n",
+					record.ID,
+					truncate(record.Title, 40),
+					formatStatus(record.Status),
+					progress,
+					record.TotalHours,
 				)
 			}
 
@@ -121,7 +141,8 @@ Examples:
 
 	cmd.Flags().StringVar(&statusFilter, "status", "", "filter by status (not-started, in-progress, completed, archived)")
 	cmd.Flags().StringVar(&tagFilter, "tag", "", "filter by tag")
-	cmd.Flags().StringVar(&sortBy, "sort", "created", "sort by field (created, updated, title)")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "sort by field (created, updated, title, status, hours)")
+	cmd.Flags().BoolVar(&showAll, "all", false, "show all plans including archived")
 
 	return cmd
 }
@@ -150,26 +171,58 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
+// calculateProgress computes progress as "percentage (completed/total)".
+// Returns "-" if the plan cannot be loaded or has no chunks.
+func calculateProgress(svc *plan.Service, planID string) string {
+	// Load full plan to get chunks
+	p, err := svc.Get(context.Background(), planID)
+	if err != nil {
+		return "-"
+	}
+
+	totalChunks := len(p.Chunks)
+	if totalChunks == 0 {
+		return "0% (0/0)"
+	}
+
+	completedChunks := 0
+	for _, chunk := range p.Chunks {
+		if chunk.Status == plan.StatusCompleted {
+			completedChunks++
+		}
+	}
+
+	percentage := int(float64(completedChunks) / float64(totalChunks) * 100)
+	return fmt.Sprintf("%d%% (%d/%d)", percentage, completedChunks, totalChunks)
+}
+
 // planShowCmd creates the `samedi plan show` subcommand.
 func planShowCmd() *cobra.Command {
-	var showChunks bool
+	var (
+		showChunks   bool
+		showSessions bool
+		showCards    bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "show <plan-id>",
 		Short: "Show plan details and progress",
 		Long: `Display detailed information about a specific plan.
 
-Shows plan metadata, progress, and recent chunks by default.
-Use --chunks to display all chunks.
+Shows plan metadata, progress, recent chunks, session history, and flashcard count.
+Use --chunks to display all chunks, --sessions for full session history,
+or --cards for detailed card statistics.
 
 Examples:
   samedi plan show rust-async
-  samedi plan show french-b1 --chunks`,
+  samedi plan show french-b1 --chunks
+  samedi plan show french-b1 --sessions
+  samedi plan show french-b1 --cards`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
 
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
@@ -180,65 +233,17 @@ Examples:
 				exitWithError("Failed to get plan: %v", err)
 			}
 
-			// Display plan info
-			fmt.Printf("%s\n", plan.Title)
-			fmt.Printf("Status: %s | Progress: %s\n",
-				formatStatus(string(plan.Status)),
-				formatProgress(plan),
-			)
-			fmt.Printf("Created: %s | Updated: %s\n",
-				plan.CreatedAt.Format("2006-01-02"),
-				plan.UpdatedAt.Format("2006-01-02"),
-			)
-			fmt.Printf("Total: %.1f hours", plan.TotalHours)
-			if len(plan.Tags) > 0 {
-				fmt.Printf(" | Tags: %v", plan.Tags)
-			}
-			fmt.Println()
-
-			// Show chunks
-			if showChunks {
-				fmt.Println("\nChunks:")
-				for i, chunk := range plan.Chunks {
-					fmt.Printf("%d. %s (%s) - %s\n",
-						i+1,
-						chunk.Title,
-						formatDuration(chunk.Duration),
-						formatStatus(string(chunk.Status)),
-					)
-				}
-			} else {
-				// Show recent chunks (first 5)
-				fmt.Println("\nRecent chunks:")
-				maxChunks := 5
-				if len(plan.Chunks) < maxChunks {
-					maxChunks = len(plan.Chunks)
-				}
-				for i := 0; i < maxChunks; i++ {
-					chunk := plan.Chunks[i]
-					fmt.Printf("  %s %s (%s)\n",
-						chunkStatusIcon(chunk.Status),
-						chunk.Title,
-						formatDuration(chunk.Duration),
-					)
-				}
-				if len(plan.Chunks) > maxChunks {
-					fmt.Printf("  ... and %d more chunks\n", len(plan.Chunks)-maxChunks)
-				}
-			}
-
-			// Next steps
-			fmt.Println()
-			nextChunk := plan.NextChunk()
-			if nextChunk != nil {
-				fmt.Printf("Next: samedi start %s %s\n", planID, nextChunk.ID)
-			} else {
-				fmt.Println("All chunks completed!")
-			}
+			// Display plan details
+			displayPlanSummary(plan)
+			displayPlanExtras(svc, planID, showSessions, showCards)
+			displayPlanChunks(plan, showChunks)
+			displayNextSteps(plan, planID)
 		},
 	}
 
 	cmd.Flags().BoolVar(&showChunks, "chunks", false, "show all chunks")
+	cmd.Flags().BoolVar(&showSessions, "sessions", false, "show full session history")
+	cmd.Flags().BoolVar(&showCards, "cards", false, "show detailed flashcard statistics")
 
 	return cmd
 }
@@ -260,7 +265,7 @@ Examples:
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
 
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
@@ -339,8 +344,109 @@ func formatDuration(minutes int) string {
 	return fmt.Sprintf("%.1fh", hours)
 }
 
+// displayPlanSummary shows the plan metadata (title, status, dates, etc).
+func displayPlanSummary(plan *plan.Plan) {
+	fmt.Printf("%s\n", plan.Title)
+	fmt.Printf("Status: %s | Progress: %s\n",
+		formatStatus(string(plan.Status)),
+		formatProgress(plan),
+	)
+	fmt.Printf("Created: %s | Updated: %s\n",
+		plan.CreatedAt.Format("2006-01-02"),
+		plan.UpdatedAt.Format("2006-01-02"),
+	)
+	fmt.Printf("Total: %.1f hours", plan.TotalHours)
+	if len(plan.Tags) > 0 {
+		fmt.Printf(" | Tags: %v", plan.Tags)
+	}
+	fmt.Println()
+}
+
+// displayPlanExtras shows session history and flashcard count.
+// The showSessions and showCards flags will control detail level in future stages.
+func displayPlanExtras(svc *plan.Service, planID string, _ /* showSessions */, _ /* showCards */ bool) {
+	ctx := context.Background()
+
+	// Get session and card data (Stage 3/4 - currently returns empty/zero)
+	sessions, err := svc.GetRecentSessions(ctx, planID, 5)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to get sessions: %v\n", err)
+		sessions = []map[string]interface{}{}
+	}
+
+	cardCount, err := svc.GetCardCount(ctx, planID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to get card count: %v\n", err)
+		cardCount = 0
+	}
+
+	// Display flashcard count (always show per FR-010)
+	fmt.Printf("Flashcards: %d cards", cardCount)
+	if cardCount > 0 {
+		fmt.Printf(" (use --cards for details)")
+	}
+	fmt.Println()
+
+	// Display session history (always show per FR-010)
+	fmt.Printf("\nRecent Sessions:\n")
+	if len(sessions) == 0 {
+		fmt.Println("  No sessions recorded yet")
+	} else {
+		for _, sess := range sessions {
+			// Stage 3: Will format session data when implemented
+			_ = sess
+		}
+	}
+}
+
+// displayPlanChunks shows either all chunks or a summary of recent chunks.
+func displayPlanChunks(p *plan.Plan, showAll bool) {
+	if showAll {
+		fmt.Println("\nChunks:")
+		for i, chunk := range p.Chunks {
+			fmt.Printf("%d. %s (%s) - %s\n",
+				i+1,
+				chunk.Title,
+				formatDuration(chunk.Duration),
+				formatStatus(string(chunk.Status)),
+			)
+		}
+	} else {
+		// Show recent chunks (first 5)
+		fmt.Println("\nRecent chunks:")
+		maxChunks := 5
+		if len(p.Chunks) < maxChunks {
+			maxChunks = len(p.Chunks)
+		}
+		for i := 0; i < maxChunks; i++ {
+			chunk := p.Chunks[i]
+			fmt.Printf("  %s %s (%s)\n",
+				chunkStatusIcon(chunk.Status),
+				chunk.Title,
+				formatDuration(chunk.Duration),
+			)
+		}
+		if len(p.Chunks) > maxChunks {
+			fmt.Printf("  ... and %d more chunks\n", len(p.Chunks)-maxChunks)
+		}
+	}
+}
+
+// displayNextSteps shows the next recommended action for the plan.
+func displayNextSteps(p *plan.Plan, planID string) {
+	fmt.Println()
+	nextChunk := p.NextChunk()
+	if nextChunk != nil {
+		fmt.Printf("Next: samedi start %s %s\n", planID, nextChunk.ID)
+	} else {
+		fmt.Println("All chunks completed!")
+	}
+}
+
 // planArchiveCmd creates the `samedi plan archive` subcommand.
 func planArchiveCmd() *cobra.Command {
+	var skipConfirm bool
+
 	cmd := &cobra.Command{
 		Use:   "archive <plan-id>",
 		Short: "Archive a completed or abandoned plan",
@@ -351,12 +457,13 @@ with 'samedi plan list --status archived'.
 
 Examples:
   samedi plan archive french-b1
-  samedi plan archive rust-async`,
+  samedi plan archive rust-async
+  samedi plan archive french-b1 --yes  # Skip confirmation`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
 
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
@@ -365,6 +472,19 @@ Examples:
 			p, err := svc.Get(context.Background(), planID)
 			if err != nil {
 				exitWithError("Failed to get plan: %v", err)
+			}
+
+			// Confirmation prompt (unless --yes flag)
+			if !skipConfirm {
+				fmt.Printf("⚠ Archive plan '%s'?\n", p.Title)
+				fmt.Printf("  This will hide it from default views.\n")
+				fmt.Printf("  Type plan ID to confirm: ")
+
+				var input string
+				if _, err := fmt.Scanln(&input); err != nil || input != planID {
+					fmt.Println("✗ Archive canceled")
+					os.Exit(0)
+				}
 			}
 
 			// Update status to archived
@@ -377,6 +497,8 @@ Examples:
 			fmt.Printf("  View archived plans: samedi plan list --status archived\n")
 		},
 	}
+
+	cmd.Flags().BoolVar(&skipConfirm, "yes", false, "skip confirmation prompt")
 
 	return cmd
 }

@@ -203,9 +203,24 @@ func (r *SQLiteRepository) buildPlaceholders(count int) string {
 
 // buildOrderClause constructs the ORDER BY clause.
 func (r *SQLiteRepository) buildOrderClause(filter *storage.PlanFilter) string {
-	if filter != nil && filter.SortBy != "" {
-		return " ORDER BY " + filter.SortBy
+	if filter == nil || filter.SortBy == "" {
+		return " ORDER BY created_at DESC"
 	}
+
+	// Map user-friendly names to SQL columns (prevent SQL injection)
+	sortField := map[string]string{
+		"created": "created_at DESC",
+		"updated": "updated_at DESC",
+		"title":   "title ASC",
+		"status":  "status ASC",
+		"hours":   "total_hours DESC",
+	}
+
+	if sqlOrder, ok := sortField[filter.SortBy]; ok {
+		return " ORDER BY " + sqlOrder
+	}
+
+	// Default if invalid sort field
 	return " ORDER BY created_at DESC"
 }
 

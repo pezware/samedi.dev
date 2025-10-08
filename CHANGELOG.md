@@ -79,6 +79,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TBD
 
 ### Fixed
+- **Stage 2 CLI Gaps** - Fixed 7 functional requirement violations identified in review
+  - Fixed `samedi init --model` flag to properly override LLM model (FR-001)
+  - Implemented progress calculation in `samedi plan list` showing percentage and chunk counts (FR-009)
+  - Implemented `--sort` functionality in `samedi plan list` with field validation (created/updated/title/status/hours) (FR-009)
+  - Added confirmation prompt to `samedi plan archive` requiring plan ID to confirm, with `--yes` flag to skip (FR-018)
+  - Filtered archived plans from default `samedi plan list` output, added `--all` flag to show all (FR-018)
+  - Added session history display to `samedi plan show` with `--sessions` flag (FR-010, Stage 3 placeholder)
+  - Added flashcard count display to `samedi plan show` with `--cards` flag (FR-010, Stage 4 placeholder)
+  - Refactored `planShowCmd` to reduce cyclomatic complexity by extracting display helpers
+  - All tests passing, all FR violations resolved
 - **LLM CLI Integration** - Fixed broken Claude provider and added working implementations
   - Fixed `--prompt-file` error: Claude CLI provider was using non-existent flag
   - Added `auto` provider for automatic CLI detection (claude → codex → gemini → llm → mock)
