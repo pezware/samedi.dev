@@ -85,7 +85,8 @@ func getConfig(_ *cobra.Command) (*config.Config, error) {
 
 // getPlanService initializes the plan service with all dependencies.
 // This includes: config, storage (SQLite + filesystem), LLM provider, and repositories.
-func getPlanService(_ *cobra.Command) (*plan.Service, error) {
+// modelOverride, if non-empty, overrides the configured default model.
+func getPlanService(_ *cobra.Command, modelOverride string) (*plan.Service, error) {
 	// Get configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -124,11 +125,29 @@ func getPlanService(_ *cobra.Command) (*plan.Service, error) {
 	}
 
 	// Create LLM provider based on config
-	var llmProvider llm.Provider
+	modelToUse := cfg.LLM.DefaultModel
+	if modelOverride != "" {
+		modelToUse = modelOverride
+	}
+	llmProvider, err := createLLMProvider(cfg, modelToUse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LLM provider: %w", err)
+	}
+
+	// Create repositories
+	sqliteRepo := plan.NewSQLiteRepository(db)
+	filesystemRepo := plan.NewFilesystemRepository(fs, paths)
+
+	// Create and return service
+	return plan.NewService(sqliteRepo, filesystemRepo, llmProvider, fs, paths), nil
+}
+
+// createLLMProvider creates an LLM provider based on configuration.
+func createLLMProvider(cfg *config.Config, model string) (llm.Provider, error) {
 	llmConfig := &llm.Config{
 		Provider: cfg.LLM.Provider,
 		Command:  cfg.LLM.CLICommand,
-		Model:    cfg.LLM.DefaultModel,
+		Model:    model,
 		Timeout:  time.Duration(cfg.LLM.TimeoutSeconds) * time.Second,
 	}
 
@@ -151,37 +170,30 @@ func getPlanService(_ *cobra.Command) (*plan.Service, error) {
 
 	switch providerName {
 	case "mock":
-		llmProvider = llm.NewMockProvider()
+		return llm.NewMockProvider(), nil
 	case "claude":
 		// Claude Code CLI (https://claude.com/claude-code)
 		// Installation: npm install -g @anthropic/claude-code
-		llmProvider = llm.NewClaudeCodeProvider(llmConfig)
+		return llm.NewClaudeCodeProvider(llmConfig), nil
 	case "codex":
 		// Codex CLI (https://codex.dev)
 		// Installation: npm install -g @codex/cli
-		llmProvider = llm.NewCodexProvider(llmConfig)
+		return llm.NewCodexProvider(llmConfig), nil
 	case "gemini":
 		// Gemini CLI (https://github.com/google/gemini-cli)
 		// Installation: npm install -g @google/gemini-cli
-		llmProvider = llm.NewGeminiCLIProvider(llmConfig)
+		return llm.NewGeminiCLIProvider(llmConfig), nil
 	case "llm":
 		// Simon Willison's llm CLI tool (universal fallback)
 		// Installation: uv pip install llm && llm install llm-claude-3
-		llmProvider = llm.NewCLIProvider(llmConfig)
+		return llm.NewCLIProvider(llmConfig), nil
 	case "stdin":
 		// Generic stdin-based provider for custom CLIs
 		// Requires llm.cli_command to be set in config
-		llmProvider = llm.NewStdinProvider(llmConfig)
+		return llm.NewStdinProvider(llmConfig), nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider: %s (supported: auto, claude, codex, gemini, llm, stdin, mock)", cfg.LLM.Provider)
 	}
-
-	// Create repositories
-	sqliteRepo := plan.NewSQLiteRepository(db)
-	filesystemRepo := plan.NewFilesystemRepository(fs, paths)
-
-	// Create and return service
-	return plan.NewService(sqliteRepo, filesystemRepo, llmProvider, fs, paths), nil
 }
 
 // ensureTemplate copies the plan generation template to ~/.samedi/templates if it doesn't exist.

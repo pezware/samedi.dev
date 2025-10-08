@@ -49,8 +49,8 @@ Examples:
 				exitWithError("hours too large (max 1000), got %.1f", hours)
 			}
 
-			// Initialize plan service
-			svc, err := getPlanService(cmd)
+			// Initialize plan service (with model override if provided)
+			svc, err := getPlanService(cmd, model)
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}

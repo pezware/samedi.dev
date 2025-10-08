@@ -61,7 +61,7 @@ Examples:
   samedi plan list --tag language
   samedi plan list --json`,
 		Run: func(cmd *cobra.Command, _ []string) {
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
@@ -169,7 +169,7 @@ Examples:
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
 
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
@@ -260,7 +260,7 @@ Examples:
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
 
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
@@ -356,7 +356,7 @@ Examples:
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
 
-			svc, err := getPlanService(cmd)
+			svc, err := getPlanService(cmd, "")
 			if err != nil {
 				exitWithError("Failed to initialize: %v", err)
 			}
