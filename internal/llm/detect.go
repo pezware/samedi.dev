@@ -49,7 +49,7 @@ func DetectCLI() CLIInfo {
 		{
 			Name:    "codex",
 			Command: "codex",
-			Model:   "o3",
+			Model:   "", // Let Codex use its own default
 		},
 		{
 			Name:    "gemini",
