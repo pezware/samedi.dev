@@ -48,6 +48,7 @@ func planListCmd() *cobra.Command {
 		statusFilter string
 		tagFilter    string
 		sortBy       string
+		showAll      bool
 	)
 
 	cmd := &cobra.Command{
@@ -55,8 +56,13 @@ func planListCmd() *cobra.Command {
 		Short: "List all learning plans",
 		Long: `List all learning plans with optional filtering.
 
+By default, archived plans are hidden. Use --all to show all plans
+including archived ones, or --status archived to show only archived plans.
+
 Examples:
-  samedi plan list
+  samedi plan list                     # Active plans only
+  samedi plan list --all               # Include archived plans
+  samedi plan list --status archived   # Only archived plans
   samedi plan list --status in-progress
   samedi plan list --tag language
   samedi plan list --json`,
@@ -70,6 +76,13 @@ Examples:
 			filter := &storage.PlanFilter{}
 			if statusFilter != "" {
 				filter.Statuses = []string{statusFilter}
+			} else if !showAll {
+				// By default, exclude archived plans unless --all is specified
+				filter.Statuses = []string{
+					string(plan.StatusNotStarted),
+					string(plan.StatusInProgress),
+					string(plan.StatusCompleted),
+				}
 			}
 			if tagFilter != "" {
 				filter.Tag = tagFilter
@@ -129,6 +142,7 @@ Examples:
 	cmd.Flags().StringVar(&statusFilter, "status", "", "filter by status (not-started, in-progress, completed, archived)")
 	cmd.Flags().StringVar(&tagFilter, "tag", "", "filter by tag")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "sort by field (created, updated, title, status, hours)")
+	cmd.Flags().BoolVar(&showAll, "all", false, "show all plans including archived")
 
 	return cmd
 }
@@ -373,6 +387,8 @@ func formatDuration(minutes int) string {
 
 // planArchiveCmd creates the `samedi plan archive` subcommand.
 func planArchiveCmd() *cobra.Command {
+	var skipConfirm bool
+
 	cmd := &cobra.Command{
 		Use:   "archive <plan-id>",
 		Short: "Archive a completed or abandoned plan",
@@ -383,7 +399,8 @@ with 'samedi plan list --status archived'.
 
 Examples:
   samedi plan archive french-b1
-  samedi plan archive rust-async`,
+  samedi plan archive rust-async
+  samedi plan archive french-b1 --yes  # Skip confirmation`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			planID := args[0]
@@ -399,6 +416,19 @@ Examples:
 				exitWithError("Failed to get plan: %v", err)
 			}
 
+			// Confirmation prompt (unless --yes flag)
+			if !skipConfirm {
+				fmt.Printf("⚠ Archive plan '%s'?\n", p.Title)
+				fmt.Printf("  This will hide it from default views.\n")
+				fmt.Printf("  Type plan ID to confirm: ")
+
+				var input string
+				if _, err := fmt.Scanln(&input); err != nil || input != planID {
+					fmt.Println("✗ Archive canceled")
+					os.Exit(0)
+				}
+			}
+
 			// Update status to archived
 			p.Status = plan.StatusArchived
 			if err := svc.Update(context.Background(), p); err != nil {
@@ -409,6 +439,8 @@ Examples:
 			fmt.Printf("  View archived plans: samedi plan list --status archived\n")
 		},
 	}
+
+	cmd.Flags().BoolVar(&skipConfirm, "yes", false, "skip confirmation prompt")
 
 	return cmd
 }
