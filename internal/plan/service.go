@@ -376,8 +376,8 @@ func slugify(s string) string {
 	return s
 }
 
-// cleanLLMOutput strips markdown code fences and extra whitespace from LLM output.
-// Many LLMs wrap their output in ```markdown...``` blocks, which breaks parsing.
+// cleanLLMOutput strips markdown code fences, preamble text, and extra whitespace from LLM output.
+// Many LLMs wrap their output in ```markdown...``` blocks or add introductory text before the actual plan.
 func cleanLLMOutput(output string) string {
 	output = strings.TrimSpace(output)
 
@@ -393,6 +393,22 @@ func cleanLLMOutput(output string) string {
 				lines = lines[:len(lines)-1]
 			}
 			output = strings.Join(lines, "\n")
+		}
+	}
+
+	output = strings.TrimSpace(output)
+
+	// Strip any preamble text before the first frontmatter delimiter
+	// LLMs often add explanatory text like "I'll create a plan..." before the actual markdown
+	if !strings.HasPrefix(output, "---") {
+		// Find the first occurrence of "---" at the start of a line
+		lines := strings.Split(output, "\n")
+		for i, line := range lines {
+			if strings.TrimSpace(line) == "---" {
+				// Found the frontmatter start, keep everything from here
+				output = strings.Join(lines[i:], "\n")
+				break
+			}
 		}
 	}
 
