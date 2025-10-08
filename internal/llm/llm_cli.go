@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Samedi Contributors
 // SPDX-License-Identifier: MIT
 
+//nolint:dupl // Similar structure to other CLI providers is intentional
 package llm
 
 import (
