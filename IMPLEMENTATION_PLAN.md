@@ -1,6 +1,6 @@
 # Samedi Implementation Plan
 
-**Last Updated:** 2025-10-06
+**Last Updated:** 2025-10-07
 
 ## Overview
 
@@ -468,6 +468,18 @@ Before marking a stage complete:
   - Full plan management workflow: init → list → show → edit → archive
   - All quality checks passing (make check)
   - Branch: feat/stage-2-cli-commands
+
+- Fixed Stage 2 CLI gaps (identified in review):
+  - Fixed `samedi init --model` flag to wire through to LLM provider
+  - Implemented progress calculation in `samedi plan list` (% and chunk counts)
+  - Implemented `--sort` functionality in `samedi plan list` with field validation
+  - Added confirmation prompt to `samedi plan archive` with --yes flag
+  - Filtered archived plans from default `samedi plan list` output
+  - Added session history display to `samedi plan show` (Stage 3 placeholder)
+  - Added flashcard count display to `samedi plan show` (Stage 4 placeholder)
+  - Extracted display helpers to reduce cyclomatic complexity
+  - 6 commits, all tests passing, all FR violations resolved
+  - Branch: fix/stage-2-cli-gaps
 
 ---
 
