@@ -159,7 +159,10 @@ func createLLMProvider(cfg *config.Config, model string) (llm.Provider, error) {
 		if detected.Found {
 			providerName = detected.Name
 			llmConfig.Command = detected.Command
-			llmConfig.Model = detected.Model
+			// Only use detected model if user didn't provide override
+			if model == "" {
+				llmConfig.Model = detected.Model
+			}
 			// NOTE: Could add logging here if verbose mode is enabled
 			// fmt.Printf("Auto-detected %s CLI\n", detected.Name)
 		} else {

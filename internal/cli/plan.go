@@ -362,8 +362,9 @@ func displayPlanSummary(plan *plan.Plan) {
 	fmt.Println()
 }
 
-// displayPlanExtras shows session history and flashcard count if available.
-func displayPlanExtras(svc *plan.Service, planID string, showSessions, showCards bool) {
+// displayPlanExtras shows session history and flashcard count.
+// The showSessions and showCards flags will control detail level in future stages.
+func displayPlanExtras(svc *plan.Service, planID string, _ /* showSessions */, _ /* showCards */ bool) {
 	ctx := context.Background()
 
 	// Get session and card data (Stage 3/4 - currently returns empty/zero)
@@ -379,25 +380,21 @@ func displayPlanExtras(svc *plan.Service, planID string, showSessions, showCards
 		cardCount = 0
 	}
 
-	// Display flashcard count
-	if cardCount > 0 || showCards {
-		fmt.Printf("Flashcards: %d cards", cardCount)
-		if cardCount > 0 {
-			fmt.Printf(" (use --cards for details)")
-		}
-		fmt.Println()
+	// Display flashcard count (always show per FR-010)
+	fmt.Printf("Flashcards: %d cards", cardCount)
+	if cardCount > 0 {
+		fmt.Printf(" (use --cards for details)")
 	}
+	fmt.Println()
 
-	// Display session history
-	if len(sessions) > 0 || showSessions {
-		fmt.Printf("\nRecent Sessions:\n")
-		if len(sessions) == 0 {
-			fmt.Println("  No sessions yet")
-		} else {
-			for _, sess := range sessions {
-				// Stage 3: Will format session data when implemented
-				_ = sess
-			}
+	// Display session history (always show per FR-010)
+	fmt.Printf("\nRecent Sessions:\n")
+	if len(sessions) == 0 {
+		fmt.Println("  No sessions recorded yet")
+	} else {
+		for _, sess := range sessions {
+			// Stage 3: Will format session data when implemented
+			_ = sess
 		}
 	}
 }
