@@ -423,3 +423,96 @@ func cleanLLMOutput(output string) string {
 
 	return strings.TrimSpace(output)
 }
+
+// GetChunk fetches a specific chunk from a plan by ID.
+func (s *Service) GetChunk(ctx context.Context, planID, chunkID string) (*Chunk, error) {
+	// Load the plan
+	plan, err := s.Get(ctx, planID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load plan: %w", err)
+	}
+
+	// Find the chunk
+	for i := range plan.Chunks {
+		if plan.Chunks[i].ID == chunkID {
+			return &plan.Chunks[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("chunk not found: %s in plan %s", chunkID, planID)
+}
+
+// UpdateChunkStatus updates a chunk's status in the plan and recalculates plan status.
+// This is used for smart inference based on session tracking.
+func (s *Service) UpdateChunkStatus(ctx context.Context, planID, chunkID string, newStatus Status) error {
+	// Load the plan
+	plan, err := s.Get(ctx, planID)
+	if err != nil {
+		return fmt.Errorf("failed to load plan: %w", err)
+	}
+
+	// Find and update the chunk
+	chunkFound := false
+	for i := range plan.Chunks {
+		if plan.Chunks[i].ID == chunkID {
+			plan.Chunks[i].Status = newStatus
+			chunkFound = true
+			break
+		}
+	}
+
+	if !chunkFound {
+		return fmt.Errorf("chunk not found: %s in plan %s", chunkID, planID)
+	}
+
+	// Recalculate plan status based on chunks
+	plan.Status = s.inferPlanStatus(plan)
+	plan.UpdatedAt = time.Now()
+
+	// Save the updated plan
+	if err := s.Update(ctx, plan); err != nil {
+		return fmt.Errorf("failed to update plan: %w", err)
+	}
+
+	return nil
+}
+
+// inferPlanStatus determines the plan's overall status based on its chunks.
+// Logic:
+// - If any chunk is in-progress or completed, plan is in-progress
+// - If all chunks are completed, plan is completed
+// - Otherwise plan is not-started
+func (s *Service) inferPlanStatus(plan *Plan) Status {
+	if len(plan.Chunks) == 0 {
+		return StatusNotStarted
+	}
+
+	hasInProgress := false
+	hasCompleted := false
+	allCompleted := true
+
+	for _, chunk := range plan.Chunks {
+		switch chunk.Status {
+		case StatusInProgress:
+			hasInProgress = true
+			allCompleted = false
+		case StatusCompleted:
+			hasCompleted = true
+		default:
+			allCompleted = false
+		}
+	}
+
+	// All chunks completed
+	if allCompleted {
+		return StatusCompleted
+	}
+
+	// Any chunk started
+	if hasInProgress || hasCompleted {
+		return StatusInProgress
+	}
+
+	// No chunks started
+	return StatusNotStarted
+}

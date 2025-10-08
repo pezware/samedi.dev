@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -266,11 +267,67 @@ func getSessionService(_ *cobra.Command) (*session.Service, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
+	// Initialize filesystem storage for plan service
+	fs := storage.NewFilesystemStorage(paths)
+
+	// Create plan repositories
+	planSQLiteRepo := plan.NewSQLiteRepository(db)
+	planFilesystemRepo := plan.NewFilesystemRepository(fs, paths)
+
+	// Create plan service without LLM provider (we only need to read plans)
+	// Pass nil for LLM provider since session commands don't generate plans
+	planService := plan.NewService(planSQLiteRepo, planFilesystemRepo, nil, fs, paths)
+
+	// Wrap plan service in adapter to match session.PlanService interface
+	adapter := &planServiceAdapter{planService: planService}
+
 	// Create session repository
 	sessionRepo := session.NewSQLiteRepository(db)
 
-	// Create session service without plan service for now
-	return session.NewService(sessionRepo, nil), nil
+	// Create session service with plan service for validation
+	return session.NewService(sessionRepo, adapter), nil
+}
+
+// planServiceAdapter adapts plan.Service to session.PlanService interface.
+type planServiceAdapter struct {
+	planService *plan.Service
+}
+
+func (a *planServiceAdapter) Get(ctx context.Context, id string) (interface{}, error) {
+	return a.planService.Get(ctx, id)
+}
+
+func (a *planServiceAdapter) GetChunk(ctx context.Context, planID, chunkID string) (*session.PlanChunk, error) {
+	chunk, err := a.planService.GetChunk(ctx, planID, chunkID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert plan.Chunk to session.PlanChunk
+	return &session.PlanChunk{
+		ID:       chunk.ID,
+		Duration: chunk.Duration,
+		Status:   string(chunk.Status),
+	}, nil
+}
+
+func (a *planServiceAdapter) UpdateChunkStatus(ctx context.Context, planID, chunkID, newStatus string) error {
+	// Convert string status to plan.Status type
+	var status plan.Status
+	switch newStatus {
+	case "not-started":
+		status = plan.StatusNotStarted
+	case "in-progress":
+		status = plan.StatusInProgress
+	case "completed":
+		status = plan.StatusCompleted
+	case "skipped":
+		status = plan.StatusSkipped
+	default:
+		return fmt.Errorf("invalid status: %s", newStatus)
+	}
+
+	return a.planService.UpdateChunkStatus(ctx, planID, chunkID, status)
 }
 
 // exitWithError prints an error and exits.

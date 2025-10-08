@@ -80,9 +80,10 @@ func (m *MockRepository) List(_ context.Context, planID string, limit int) ([]*S
 	}
 	sessions := make([]*Session, 0)
 	for _, session := range m.sessions {
-		if session.PlanID == planID {
+		// Empty planID means "all plans"
+		if planID == "" || session.PlanID == planID {
 			sessions = append(sessions, session)
-			if len(sessions) >= limit {
+			if limit > 0 && len(sessions) >= limit {
 				break
 			}
 		}
@@ -117,17 +118,28 @@ func (m *MockRepository) Delete(_ context.Context, id string) error {
 // MockPlanService is a mock implementation of PlanService for testing.
 type MockPlanService struct {
 	plans    map[string]interface{}
+	chunks   map[string]*PlanChunk // key: "planID:chunkID"
 	getError error
 }
 
 func NewMockPlanService() *MockPlanService {
 	return &MockPlanService{
-		plans: make(map[string]interface{}),
+		plans:  make(map[string]interface{}),
+		chunks: make(map[string]*PlanChunk),
 	}
 }
 
 func (m *MockPlanService) AddPlan(id string) {
 	m.plans[id] = struct{}{}
+}
+
+func (m *MockPlanService) AddChunk(planID, chunkID string, duration int, status string) {
+	key := fmt.Sprintf("%s:%s", planID, chunkID)
+	m.chunks[key] = &PlanChunk{
+		ID:       chunkID,
+		Duration: duration,
+		Status:   status,
+	}
 }
 
 func (m *MockPlanService) Get(_ context.Context, id string) (interface{}, error) {
@@ -138,6 +150,25 @@ func (m *MockPlanService) Get(_ context.Context, id string) (interface{}, error)
 		return nil, fmt.Errorf("plan not found: %s", id)
 	}
 	return m.plans[id], nil
+}
+
+func (m *MockPlanService) GetChunk(_ context.Context, planID, chunkID string) (*PlanChunk, error) {
+	key := fmt.Sprintf("%s:%s", planID, chunkID)
+	chunk, exists := m.chunks[key]
+	if !exists {
+		return nil, fmt.Errorf("chunk not found: %s in plan %s", chunkID, planID)
+	}
+	return chunk, nil
+}
+
+func (m *MockPlanService) UpdateChunkStatus(_ context.Context, planID, chunkID, newStatus string) error {
+	key := fmt.Sprintf("%s:%s", planID, chunkID)
+	chunk, exists := m.chunks[key]
+	if !exists {
+		return fmt.Errorf("chunk not found: %s in plan %s", chunkID, planID)
+	}
+	chunk.Status = newStatus
+	return nil
 }
 
 func TestService_Start_Success(t *testing.T) {
@@ -395,11 +426,28 @@ func TestService_GetStatus_NoActiveSession(t *testing.T) {
 	service := NewService(repo, nil)
 	ctx := context.Background()
 
+	// Create some completed sessions from different plans
+	for i := 0; i < 3; i++ {
+		start := time.Now().Add(time.Duration(-i-1) * time.Hour)
+		end := start.Add(1 * time.Hour)
+		session := &Session{
+			ID:        uuid.New().String(),
+			PlanID:    fmt.Sprintf("plan-%d", i),
+			StartTime: start,
+			EndTime:   &end,
+			Duration:  60,
+			CreatedAt: start,
+		}
+		repo.Create(ctx, session)
+	}
+
 	status, err := service.GetStatus(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, status)
 
 	assert.Nil(t, status.Active)
+	assert.NotEmpty(t, status.Recent, "should show recent sessions when no active session")
+	assert.Len(t, status.Recent, 3, "should return all 3 recent sessions")
 }
 
 func TestService_List_Success(t *testing.T) {

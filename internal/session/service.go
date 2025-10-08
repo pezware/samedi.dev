@@ -11,11 +11,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// PlanChunk represents a chunk for the session service's needs.
+type PlanChunk struct {
+	ID       string
+	Duration int // in minutes
+	Status   string
+}
+
 // PlanService defines the interface for plan operations needed by session service.
-// This allows SessionService to verify that plans exist before starting sessions.
+// This allows SessionService to verify that plans exist and update chunk statuses.
 type PlanService interface {
 	// Get retrieves a plan by ID.
 	Get(ctx context.Context, id string) (interface{}, error)
+
+	// GetChunk retrieves a specific chunk from a plan.
+	GetChunk(ctx context.Context, planID, chunkID string) (*PlanChunk, error)
+
+	// UpdateChunkStatus updates a chunk's status (for smart inference).
+	UpdateChunkStatus(ctx context.Context, planID, chunkID, newStatus string) error
 }
 
 // Service provides business logic for session management.
@@ -95,6 +108,16 @@ func (s *Service) Start(ctx context.Context, req StartRequest) (*Session, error)
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
+	// Smart inference: Mark chunk as in-progress if it's not-started
+	if s.planService != nil && req.ChunkID != "" {
+		chunk, err := s.planService.GetChunk(ctx, req.PlanID, req.ChunkID)
+		if err == nil && chunk.Status == "not-started" {
+			// Best-effort update: silently ignore errors as this is not critical to session creation
+			//nolint:errcheck // intentionally ignoring error for best-effort status update
+			s.planService.UpdateChunkStatus(ctx, req.PlanID, req.ChunkID, "in-progress")
+		}
+	}
+
 	return session, nil
 }
 
@@ -147,6 +170,13 @@ func (s *Service) Stop(ctx context.Context, req StopRequest) (*Session, error) {
 		return nil, fmt.Errorf("failed to update session: %w", err)
 	}
 
+	// Smart inference: Auto-complete chunk if total time >= chunk duration
+	// Best-effort update: silently ignore errors as session was successfully stopped
+	if s.planService != nil && session.ChunkID != "" {
+		//nolint:errcheck // intentionally ignoring error for best-effort status update
+		s.checkAndCompleteChunk(ctx, session.PlanID, session.ChunkID)
+	}
+
 	return session, nil
 }
 
@@ -177,15 +207,20 @@ func (s *Service) GetStatus(ctx context.Context) (*Status, error) {
 		return nil, fmt.Errorf("failed to get active session: %w", err)
 	}
 
-	// Get recent sessions from all plans
-	// For now, we'll get recent sessions from the active session's plan
-	// or all sessions if no active session
+	// Get recent sessions
+	// If there's an active session, show recent sessions from that plan
+	// If no active session, show recent sessions across all plans
 	var recent []*Session
+	var planID string
 	if active != nil {
-		recent, err = s.repo.List(ctx, active.PlanID, 5)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get recent sessions: %w", err)
-		}
+		planID = active.PlanID
+	} else {
+		planID = "" // Empty planID means "all plans"
+	}
+
+	recent, err = s.repo.List(ctx, planID, 5)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent sessions: %w", err)
 	}
 
 	status := &Status{
@@ -250,4 +285,42 @@ func (s *Service) GetTotalDuration(ctx context.Context, planID string) (int, err
 	}
 
 	return totalMinutes, nil
+}
+
+// checkAndCompleteChunk checks if a chunk should be auto-completed based on session time.
+// If total session time for the chunk >= chunk duration, marks it as completed.
+func (s *Service) checkAndCompleteChunk(ctx context.Context, planID, chunkID string) error {
+	// Get the chunk to find its expected duration
+	chunk, err := s.planService.GetChunk(ctx, planID, chunkID)
+	if err != nil {
+		return fmt.Errorf("failed to get chunk: %w", err)
+	}
+
+	// Skip if already completed or skipped
+	if chunk.Status == "completed" || chunk.Status == "skipped" {
+		return nil
+	}
+
+	// Get all sessions for this plan
+	sessions, err := s.repo.GetByPlan(ctx, planID)
+	if err != nil {
+		return fmt.Errorf("failed to get sessions: %w", err)
+	}
+
+	// Calculate total time spent on this specific chunk
+	totalMinutes := 0
+	for _, session := range sessions {
+		if session.ChunkID == chunkID && !session.IsActive() {
+			totalMinutes += session.Duration
+		}
+	}
+
+	// If total time >= chunk duration, mark as completed
+	if totalMinutes >= chunk.Duration {
+		if err := s.planService.UpdateChunkStatus(ctx, planID, chunkID, "completed"); err != nil {
+			return fmt.Errorf("failed to mark chunk as completed: %w", err)
+		}
+	}
+
+	return nil
 }

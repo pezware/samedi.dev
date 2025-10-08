@@ -168,31 +168,55 @@ func (r *SQLiteRepository) Update(ctx context.Context, session *Session) error {
 }
 
 // List retrieves sessions for a plan, ordered by start time descending.
+// If planID is empty, returns recent sessions across all plans.
 func (r *SQLiteRepository) List(ctx context.Context, planID string, limit int) ([]*Session, error) {
 	var query string
 	var rows *sql.Rows
 	var err error
 
-	if limit > 0 {
-		query = `
-			SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
-				notes, artifacts, cards_created, created_at
-			FROM sessions
-			WHERE plan_id = ?
-			ORDER BY start_time DESC
-			LIMIT ?
-		`
-		rows, err = r.db.DB().QueryContext(ctx, query, planID, limit)
+	// Handle empty planID as "all plans"
+	if planID == "" {
+		if limit > 0 {
+			query = `
+				SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
+					notes, artifacts, cards_created, created_at
+				FROM sessions
+				ORDER BY start_time DESC
+				LIMIT ?
+			`
+			rows, err = r.db.DB().QueryContext(ctx, query, limit)
+		} else {
+			query = `
+				SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
+					notes, artifacts, cards_created, created_at
+				FROM sessions
+				ORDER BY start_time DESC
+			`
+			rows, err = r.db.DB().QueryContext(ctx, query)
+		}
 	} else {
-		// No limit - return all sessions for the plan
-		query = `
-			SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
-				notes, artifacts, cards_created, created_at
-			FROM sessions
-			WHERE plan_id = ?
-			ORDER BY start_time DESC
-		`
-		rows, err = r.db.DB().QueryContext(ctx, query, planID)
+		// Filter by specific plan
+		if limit > 0 {
+			query = `
+				SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
+					notes, artifacts, cards_created, created_at
+				FROM sessions
+				WHERE plan_id = ?
+				ORDER BY start_time DESC
+				LIMIT ?
+			`
+			rows, err = r.db.DB().QueryContext(ctx, query, planID, limit)
+		} else {
+			// No limit - return all sessions for the plan
+			query = `
+				SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
+					notes, artifacts, cards_created, created_at
+				FROM sessions
+				WHERE plan_id = ?
+				ORDER BY start_time DESC
+			`
+			rows, err = r.db.DB().QueryContext(ctx, query, planID)
+		}
 	}
 
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pezware/samedi.dev/internal/plan"
 	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -69,8 +70,10 @@ Examples:
 				fmt.Printf("  Notes: %s\n", sess.Notes)
 			}
 
-			// If we have a plan service, try to get chunk objectives
-			// For now, we'll skip this since it requires loading the plan
+			// Display chunk objectives if chunk was specified
+			if chunkID != "" {
+				displayChunkObjectives(cmd, planID, chunkID)
+			}
 
 			fmt.Println("\nTimer running. Stop with: samedi stop")
 		},
@@ -80,4 +83,59 @@ Examples:
 	cmd.Flags().StringVar(&notes, "note", "", "initial notes for the session")
 
 	return cmd
+}
+
+// displayChunkObjectives fetches and displays chunk objectives for a plan chunk.
+func displayChunkObjectives(cmd *cobra.Command, planID, chunkID string) {
+	// Get plan service to fetch chunk details
+	planSvc, err := getPlanService(cmd, "")
+	if err != nil {
+		// Silently skip if we can't get plan service
+		return
+	}
+
+	// Get the plan
+	planObj, err := planSvc.Get(context.Background(), planID)
+	if err != nil {
+		// Silently skip if we can't load the plan
+		return
+	}
+
+	// Find the specified chunk
+	var targetChunk *plan.Chunk
+	for i, chunk := range planObj.Chunks {
+		if chunk.ID == chunkID {
+			targetChunk = &planObj.Chunks[i]
+			break
+		}
+	}
+
+	if targetChunk == nil {
+		// Chunk not found, skip silently
+		return
+	}
+
+	// Display chunk information
+	fmt.Println()
+	if targetChunk.Title != "" {
+		fmt.Printf("Chunk: %s\n", targetChunk.Title)
+	}
+
+	if len(targetChunk.Objectives) > 0 {
+		fmt.Println("\nObjectives:")
+		for _, obj := range targetChunk.Objectives {
+			fmt.Printf("  - %s\n", obj)
+		}
+	}
+
+	if len(targetChunk.Resources) > 0 {
+		fmt.Println("\nResources:")
+		for _, res := range targetChunk.Resources {
+			fmt.Printf("  - %s\n", res)
+		}
+	}
+
+	if targetChunk.Deliverable != "" {
+		fmt.Printf("\nDeliverable: %s\n", targetChunk.Deliverable)
+	}
 }

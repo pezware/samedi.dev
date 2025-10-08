@@ -5,6 +5,7 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -326,6 +327,52 @@ func TestSQLiteRepository_List_EmptyResult(t *testing.T) {
 	sessions, err := repo.List(ctx, "test-plan", 10)
 	require.NoError(t, err)
 	assert.Len(t, sessions, 0)
+}
+
+func TestSQLiteRepository_List_AllPlans(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	createTestPlan(t, db, "plan-1")
+	createTestPlan(t, db, "plan-2")
+	createTestPlan(t, db, "plan-3")
+
+	repo := NewSQLiteRepository(db)
+	ctx := context.Background()
+
+	now := time.Now()
+
+	// Create sessions for different plans
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 2; j++ {
+			session := &Session{
+				ID:        uuid.New().String(),
+				PlanID:    fmt.Sprintf("plan-%d", i+1),
+				StartTime: now.Add(time.Duration(i*2+j) * time.Hour),
+				CreatedAt: now,
+			}
+			err := repo.Create(ctx, session)
+			require.NoError(t, err)
+		}
+	}
+
+	// List with empty planID should return sessions across all plans
+	sessions, err := repo.List(ctx, "", 10)
+	require.NoError(t, err)
+	assert.Len(t, sessions, 6, "should return sessions from all plans")
+
+	// Verify sessions from different plans are included
+	planIDs := make(map[string]bool)
+	for _, sess := range sessions {
+		planIDs[sess.PlanID] = true
+	}
+	assert.Len(t, planIDs, 3, "should have sessions from 3 different plans")
+
+	// Should be ordered by start_time DESC (most recent first)
+	for i := 0; i < len(sessions)-1; i++ {
+		assert.True(t, sessions[i].StartTime.After(sessions[i+1].StartTime) ||
+			sessions[i].StartTime.Equal(sessions[i+1].StartTime))
+	}
 }
 
 func TestSQLiteRepository_GetByPlan(t *testing.T) {
