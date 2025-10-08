@@ -74,6 +74,9 @@ Examples:
 			if tagFilter != "" {
 				filter.Tag = tagFilter
 			}
+			if sortBy != "" {
+				filter.SortBy = sortBy
+			}
 
 			// Get plans
 			plans, err := svc.List(context.Background(), filter)
@@ -125,7 +128,7 @@ Examples:
 
 	cmd.Flags().StringVar(&statusFilter, "status", "", "filter by status (not-started, in-progress, completed, archived)")
 	cmd.Flags().StringVar(&tagFilter, "tag", "", "filter by tag")
-	cmd.Flags().StringVar(&sortBy, "sort", "created", "sort by field (created, updated, title)")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "sort by field (created, updated, title, status, hours)")
 
 	return cmd
 }

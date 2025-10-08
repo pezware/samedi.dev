@@ -37,7 +37,7 @@ func TestPlanListCmd_Structure(t *testing.T) {
 
 	sort := cmd.Flags().Lookup("sort")
 	require.NotNil(t, sort)
-	assert.Equal(t, "created", sort.DefValue)
+	assert.Equal(t, "", sort.DefValue) // Empty means use default (created_at DESC)
 }
 
 func TestFormatStatus(t *testing.T) {
