@@ -169,16 +169,32 @@ func (r *SQLiteRepository) Update(ctx context.Context, session *Session) error {
 
 // List retrieves sessions for a plan, ordered by start time descending.
 func (r *SQLiteRepository) List(ctx context.Context, planID string, limit int) ([]*Session, error) {
-	query := `
-		SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
-			notes, artifacts, cards_created, created_at
-		FROM sessions
-		WHERE plan_id = ?
-		ORDER BY start_time DESC
-		LIMIT ?
-	`
+	var query string
+	var rows *sql.Rows
+	var err error
 
-	rows, err := r.db.DB().QueryContext(ctx, query, planID, limit)
+	if limit > 0 {
+		query = `
+			SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
+				notes, artifacts, cards_created, created_at
+			FROM sessions
+			WHERE plan_id = ?
+			ORDER BY start_time DESC
+			LIMIT ?
+		`
+		rows, err = r.db.DB().QueryContext(ctx, query, planID, limit)
+	} else {
+		// No limit - return all sessions for the plan
+		query = `
+			SELECT id, plan_id, chunk_id, start_time, end_time, duration_minutes,
+				notes, artifacts, cards_created, created_at
+			FROM sessions
+			WHERE plan_id = ?
+			ORDER BY start_time DESC
+		`
+		rows, err = r.db.DB().QueryContext(ctx, query, planID)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
 	}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pezware/samedi.dev/internal/llm"
+	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/storage"
 )
 
@@ -25,6 +26,7 @@ type Service struct {
 	llmProvider    llm.Provider
 	fs             *storage.FilesystemStorage
 	paths          *storage.Paths
+	sessionService *session.Service // Optional - for session integration
 }
 
 // NewService creates a new plan service with all required dependencies.
@@ -42,6 +44,12 @@ func NewService(
 		fs:             fs,
 		paths:          paths,
 	}
+}
+
+// SetSessionService sets the session service for session integration.
+// This is optional and used for displaying session history in plan views.
+func (s *Service) SetSessionService(sessionService *session.Service) {
+	s.sessionService = sessionService
 }
 
 // CreateRequest contains parameters for creating a new plan.
@@ -203,11 +211,34 @@ func (s *Service) GetMetadata(ctx context.Context, id string) (*storage.PlanReco
 }
 
 // GetRecentSessions retrieves the most recent learning sessions for a plan.
-// Stage 3 implementation: Will query SessionRepository once sessions are implemented.
-// Currently returns empty slice as placeholder.
-func (s *Service) GetRecentSessions(_ context.Context, _ string, _ int) ([]map[string]interface{}, error) {
-	// Stage 3: Will query SessionRepository
-	return []map[string]interface{}{}, nil
+// Returns session data as maps for display purposes.
+func (s *Service) GetRecentSessions(ctx context.Context, planID string, limit int) ([]map[string]interface{}, error) {
+	// If no session service is configured, return empty
+	if s.sessionService == nil {
+		return []map[string]interface{}{}, nil
+	}
+
+	// Get sessions from session service
+	sessions, err := s.sessionService.List(ctx, planID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions: %w", err)
+	}
+
+	// Convert sessions to map format for display
+	result := make([]map[string]interface{}, len(sessions))
+	for i, sess := range sessions {
+		result[i] = map[string]interface{}{
+			"id":         sess.ID,
+			"chunk_id":   sess.ChunkID,
+			"start_time": sess.StartTime,
+			"end_time":   sess.EndTime,
+			"duration":   sess.Duration,
+			"notes":      sess.Notes,
+			"is_active":  sess.IsActive(),
+		}
+	}
+
+	return result, nil
 }
 
 // GetCardCount returns the total number of flashcards for a plan.

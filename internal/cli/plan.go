@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"github.com/pezware/samedi.dev/internal/plan"
 	"github.com/pezware/samedi.dev/internal/storage"
@@ -362,6 +363,44 @@ func displayPlanSummary(plan *plan.Plan) {
 	fmt.Println()
 }
 
+// displaySessionSummary formats and displays a single session from the session map.
+func displaySessionSummary(sess map[string]interface{}) {
+	// Get chunk ID if present
+	chunkID := ""
+	if cid, ok := sess["chunk_id"].(string); ok && cid != "" {
+		chunkID = fmt.Sprintf(" (%s)", cid)
+	}
+
+	// Format start time
+	var startTime string
+	if st, ok := sess["start_time"].(time.Time); ok {
+		startTime = st.Format("Jan 2 15:04")
+	}
+
+	// Check if active or completed
+	isActive := false
+	if active, ok := sess["is_active"].(bool); ok {
+		isActive = active
+	}
+
+	if isActive {
+		// Active session - show running indicator and elapsed time
+		fmt.Printf("  → Active%s - started %s\n", chunkID, startTime)
+	} else {
+		// Completed session - show duration
+		duration := 0
+		if d, ok := sess["duration"].(int); ok {
+			duration = d
+		}
+		fmt.Printf("  ✓ %s%s - %s\n", formatDuration(duration), chunkID, startTime)
+	}
+
+	// Show notes if present
+	if notes, ok := sess["notes"].(string); ok && notes != "" {
+		fmt.Printf("    Notes: %s\n", notes)
+	}
+}
+
 // displayPlanExtras shows session history and flashcard count.
 // The showSessions and showCards flags will control detail level in future stages.
 func displayPlanExtras(svc *plan.Service, planID string, _ /* showSessions */, _ /* showCards */ bool) {
@@ -393,8 +432,7 @@ func displayPlanExtras(svc *plan.Service, planID string, _ /* showSessions */, _
 		fmt.Println("  No sessions recorded yet")
 	} else {
 		for _, sess := range sessions {
-			// Stage 3: Will format session data when implemented
-			_ = sess
+			displaySessionSummary(sess)
 		}
 	}
 }

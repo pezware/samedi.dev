@@ -12,6 +12,7 @@ import (
 	"github.com/pezware/samedi.dev/internal/config"
 	"github.com/pezware/samedi.dev/internal/llm"
 	"github.com/pezware/samedi.dev/internal/plan"
+	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/storage"
 	"github.com/spf13/cobra"
 )
@@ -76,6 +77,9 @@ func init() {
 	rootCmd.AddCommand(configCmd())
 	rootCmd.AddCommand(initCmd())
 	rootCmd.AddCommand(planCmd())
+	rootCmd.AddCommand(startCmd())
+	rootCmd.AddCommand(stopCmd())
+	rootCmd.AddCommand(statusCmd())
 }
 
 // getConfig loads configuration from file or returns defaults.
@@ -138,8 +142,15 @@ func getPlanService(_ *cobra.Command, modelOverride string) (*plan.Service, erro
 	sqliteRepo := plan.NewSQLiteRepository(db)
 	filesystemRepo := plan.NewFilesystemRepository(fs, paths)
 
-	// Create and return service
-	return plan.NewService(sqliteRepo, filesystemRepo, llmProvider, fs, paths), nil
+	// Create plan service
+	planService := plan.NewService(sqliteRepo, filesystemRepo, llmProvider, fs, paths)
+
+	// Optionally integrate session service for plan history
+	sessionRepo := session.NewSQLiteRepository(db)
+	sessionService := session.NewService(sessionRepo, nil)
+	planService.SetSessionService(sessionService)
+
+	return planService, nil
 }
 
 // createLLMProvider creates an LLM provider based on configuration.
@@ -227,6 +238,39 @@ func ensureTemplate(fs *storage.FilesystemStorage, paths *storage.Paths) error {
 	}
 
 	return nil
+}
+
+// getSessionService initializes the session service with all dependencies.
+// This includes: database, session repository, and optional plan service.
+func getSessionService(_ *cobra.Command) (*session.Service, error) {
+	// Get default paths
+	paths, err := storage.DefaultPaths()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get paths: %w", err)
+	}
+
+	// Ensure directories exist
+	if err := paths.EnsureDirectories(); err != nil {
+		return nil, fmt.Errorf("failed to create directories: %w", err)
+	}
+
+	// Initialize SQLite database
+	db, err := storage.NewSQLiteDB(paths.DatabasePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
+	// Run migrations
+	migrator := storage.NewMigrator(db)
+	if err := migrator.Migrate(); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	// Create session repository
+	sessionRepo := session.NewSQLiteRepository(db)
+
+	// Create session service without plan service for now
+	return session.NewService(sessionRepo, nil), nil
 }
 
 // exitWithError prints an error and exits.
