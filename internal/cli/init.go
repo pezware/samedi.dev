@@ -23,6 +23,7 @@ func initCmd() *cobra.Command {
 		model   string
 		edit    bool
 		noCards bool
+		debug   bool
 	)
 
 	cmd := &cobra.Command{
@@ -41,6 +42,12 @@ Examples:
 		Run: func(cmd *cobra.Command, args []string) {
 			topic := args[0]
 
+			// Get verbose flag
+			verbose, err := cmd.Flags().GetBool("verbose")
+			if err != nil {
+				verbose = false // Default to non-verbose on error
+			}
+
 			// Validate inputs
 			if hours <= 0 {
 				exitWithError("hours must be positive, got %.1f", hours)
@@ -55,12 +62,18 @@ Examples:
 				exitWithError("Failed to initialize: %v", err)
 			}
 
+			// Show verbose initialization info
+			if verbose {
+				showVerboseInfo(cmd, model)
+			}
+
 			// Prepare create request
 			req := plan.CreateRequest{
 				Topic:      topic,
 				TotalHours: hours,
 				Level:      level,
 				Goals:      goals,
+				Debug:      debug,
 			}
 
 			// Create plan via LLM
@@ -68,10 +81,17 @@ Examples:
 			if level != "" {
 				fmt.Printf("  Level: %s\n", level)
 			}
+			if verbose {
+				fmt.Printf("→ Calling LLM...\n")
+			}
 
 			createdPlan, err := svc.Create(context.Background(), req)
 			if err != nil {
 				exitWithError("Failed to create plan: %v", err)
+			}
+
+			if verbose {
+				fmt.Printf("→ Successfully parsed %d chunks\n", len(createdPlan.Chunks))
 			}
 
 			// Display success message
@@ -106,8 +126,28 @@ Examples:
 	cmd.Flags().StringVar(&model, "model", "", "LLM model override")
 	cmd.Flags().BoolVar(&edit, "edit", false, "open plan in $EDITOR after creation")
 	cmd.Flags().BoolVar(&noCards, "no-cards", false, "skip flashcard generation suggestion")
+	cmd.Flags().BoolVar(&debug, "debug", false, "show full LLM prompt and response for debugging")
 
 	return cmd
+}
+
+// showVerboseInfo displays verbose configuration information.
+func showVerboseInfo(cmd *cobra.Command, modelOverride string) {
+	cfg, err := getConfig(cmd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to load config for verbose output: %v\n", err)
+		return
+	}
+
+	actualModel := modelOverride
+	if actualModel == "" {
+		actualModel = cfg.LLM.DefaultModel
+	}
+
+	fmt.Printf("→ Verbose mode enabled\n")
+	fmt.Printf("→ Provider: %s\n", cfg.LLM.Provider)
+	fmt.Printf("→ Model: %s\n", actualModel)
+	fmt.Printf("→ Timeout: %d seconds\n", cfg.LLM.TimeoutSeconds)
 }
 
 // openPlanInEditor opens a plan file in the configured editor.

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"text/template"
@@ -58,6 +59,7 @@ type CreateRequest struct {
 	TotalHours float64
 	Level      string // beginner, intermediate, advanced
 	Goals      string // Optional specific goals
+	Debug      bool   // If true, log full prompt and response
 }
 
 // Create generates a new learning plan using LLM and saves it to both stores.
@@ -82,16 +84,43 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (*Plan, error) 
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
 
+	// Debug: Show full prompt
+	if req.Debug {
+		fmt.Fprintf(os.Stderr, "\n→ DEBUG: Prompt sent to LLM (%d chars):\n", len(prompt))
+		fmt.Fprintf(os.Stderr, "---BEGIN PROMPT---\n%s\n---END PROMPT---\n\n", prompt)
+	}
+
 	// Call LLM to generate plan
 	llmOutput, err := s.llmProvider.Call(ctx, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("LLM call failed: %w", err)
 	}
 
+	// Debug: Show raw LLM response
+	if req.Debug {
+		fmt.Fprintf(os.Stderr, "→ DEBUG: Raw LLM response (%d chars):\n", len(llmOutput))
+		fmt.Fprintf(os.Stderr, "---BEGIN RESPONSE---\n%s\n---END RESPONSE---\n\n", llmOutput)
+	}
+
+	// Clean LLM output (strip markdown code fences, etc.)
+	cleanedOutput := cleanLLMOutput(llmOutput)
+
+	// Debug: Show cleaned output if different
+	if req.Debug && cleanedOutput != llmOutput {
+		fmt.Fprintf(os.Stderr, "→ DEBUG: Cleaned output (%d chars, removed %d chars):\n",
+			len(cleanedOutput), len(llmOutput)-len(cleanedOutput))
+		fmt.Fprintf(os.Stderr, "---BEGIN CLEANED---\n%s\n---END CLEANED---\n\n", cleanedOutput)
+	}
+
 	// Parse LLM output into Plan struct
-	plan, err := Parse(llmOutput)
+	plan, err := Parse(cleanedOutput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse LLM output: %w", err)
+		// Show preview of output to help debug parsing issues
+		preview := cleanedOutput
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		return nil, fmt.Errorf("failed to parse LLM output: %w\nOutput preview: %s", err, preview)
 	}
 
 	// Ensure plan ID matches
@@ -345,4 +374,27 @@ func slugify(s string) string {
 	s = reg.ReplaceAllString(s, "-")
 
 	return s
+}
+
+// cleanLLMOutput strips markdown code fences and extra whitespace from LLM output.
+// Many LLMs wrap their output in ```markdown...``` blocks, which breaks parsing.
+func cleanLLMOutput(output string) string {
+	output = strings.TrimSpace(output)
+
+	// Remove markdown code fences with optional language specifier
+	// Pattern: ```markdown\n ... \n``` or ```\n ... \n```
+	if strings.HasPrefix(output, "```") {
+		lines := strings.Split(output, "\n")
+		if len(lines) > 2 {
+			// Remove first line (```markdown or ```)
+			lines = lines[1:]
+			// Remove last line if it's ```
+			if strings.TrimSpace(lines[len(lines)-1]) == "```" {
+				lines = lines[:len(lines)-1]
+			}
+			output = strings.Join(lines, "\n")
+		}
+	}
+
+	return strings.TrimSpace(output)
 }

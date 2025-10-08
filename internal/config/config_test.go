@@ -16,9 +16,9 @@ func TestDefaultConfig(t *testing.T) {
 	require.NotNil(t, cfg)
 
 	// Check LLM defaults
-	assert.Equal(t, "llm", cfg.LLM.Provider)
-	assert.Equal(t, "llm", cfg.LLM.CLICommand)
-	assert.Equal(t, 120, cfg.LLM.TimeoutSeconds)
+	assert.Equal(t, "auto", cfg.LLM.Provider)
+	assert.Equal(t, "", cfg.LLM.CLICommand)
+	assert.Equal(t, 300, cfg.LLM.TimeoutSeconds)
 
 	// Check storage defaults
 	assert.NotEmpty(t, cfg.Storage.DataDir)
@@ -93,4 +93,38 @@ func TestConfig_Validate_InvalidFirstDayOfWeek(t *testing.T) {
 	err := cfg.Validate()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid first_day_of_week")
+}
+
+func TestConfig_Validate_ProviderCommandMismatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		provider    string
+		command     string
+		shouldError bool
+	}{
+		{"claude with llm command", "claude", "llm", true},
+		{"claude with empty command", "claude", "", false},
+		{"claude with correct command", "claude", "claude", false},
+		{"llm with claude command", "llm", "claude", true},
+		{"auto with any command", "auto", "anything", false},
+		{"mock with any command", "mock", "anything", false},
+		{"gemini with llm command", "gemini", "llm", true},
+		{"gemini with correct command", "gemini", "gemini", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.LLM.Provider = tt.provider
+			cfg.LLM.CLICommand = tt.command
+
+			err := cfg.Validate()
+			if tt.shouldError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "provider/command mismatch")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
