@@ -116,7 +116,7 @@ func TestCalculateTotalStats(t *testing.T) {
 			want: TotalStats{
 				TotalHours:      3.0,
 				TotalSessions:   2,
-				ActivePlans:     1,
+				ActivePlans:     2, // p1 (in-progress) + p3 (not-started)
 				CompletedPlans:  1,
 				AverageSession:  90.0, // (60 + 120) / 2
 				LastSessionDate: &yesterday,

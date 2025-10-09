@@ -37,11 +37,15 @@ func CalculateTotalStats(sessions []session.Session, plans []plan.Plan) TotalSta
 	stats.LastSessionDate = lastSession
 
 	// Count active and completed plans
+	// Active = not-started or in-progress (exclude archived)
+	// Completed = completed status
 	for i := range plans {
-		if plans[i].Status == plan.StatusInProgress {
+		switch plans[i].Status {
+		case plan.StatusNotStarted, plan.StatusInProgress:
 			stats.ActivePlans++
-		} else if plans[i].Status == plan.StatusCompleted {
+		case plan.StatusCompleted:
 			stats.CompletedPlans++
+			// StatusArchived and others are not counted
 		}
 	}
 
