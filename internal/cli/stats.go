@@ -10,10 +10,12 @@ import (
 	"os"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pezware/samedi.dev/internal/plan"
 	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/stats"
 	"github.com/pezware/samedi.dev/internal/storage"
+	"github.com/pezware/samedi.dev/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -32,6 +34,7 @@ Examples:
   samedi stats                    # Show overall statistics
   samedi stats rust-async         # Show stats for specific plan
   samedi stats --json             # Output in JSON format
+  samedi stats --tui              # Interactive TUI dashboard
   samedi stats --range this-week  # Stats for current week`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -41,6 +44,11 @@ Examples:
 			jsonOutput, err := cmd.Flags().GetBool("json")
 			if err != nil {
 				return fmt.Errorf("failed to get json flag: %w", err)
+			}
+
+			tuiMode, err := cmd.Flags().GetBool("tui")
+			if err != nil {
+				return fmt.Errorf("failed to get tui flag: %w", err)
 			}
 
 			timeRange, err := cmd.Flags().GetString("range")
@@ -57,24 +65,25 @@ Examples:
 			// If plan ID provided, show plan stats
 			if len(args) > 0 {
 				planID := args[0]
-				return displayPlanStats(ctx, statsService, planID, jsonOutput)
+				return displayPlanStats(ctx, statsService, planID, jsonOutput, tuiMode)
 			}
 
 			// Otherwise show total stats
-			return displayTotalStats(ctx, statsService, timeRange, jsonOutput)
+			return displayTotalStats(ctx, statsService, timeRange, jsonOutput, tuiMode)
 		},
 	}
 
 	// Add flags
 	cmd.Flags().StringP("range", "r", "all", "Time range: all, today, this-week, this-month")
 	cmd.Flags().Bool("breakdown", false, "Show daily breakdown")
+	cmd.Flags().Bool("tui", false, "Launch interactive TUI dashboard")
 
 	return cmd
 }
 
 // displayTotalStats shows aggregate statistics across all learning.
 // timeRange parameter reserved for future filtering functionality.
-func displayTotalStats(ctx context.Context, service *stats.Service, _ string, jsonOutput bool) error {
+func displayTotalStats(ctx context.Context, service *stats.Service, _ string, jsonOutput, tuiMode bool) error {
 	// Get total stats
 	totalStats, err := service.GetTotalStats(ctx)
 	if err != nil {
@@ -95,11 +104,15 @@ func displayTotalStats(ctx context.Context, service *stats.Service, _ string, js
 		return printJSON(totalStats)
 	}
 
+	if tuiMode {
+		return launchTUI(totalStats, nil)
+	}
+
 	return printTotalStatsText(totalStats)
 }
 
 // displayPlanStats shows statistics for a specific plan.
-func displayPlanStats(ctx context.Context, service *stats.Service, planID string, jsonOutput bool) error {
+func displayPlanStats(ctx context.Context, service *stats.Service, planID string, jsonOutput, tuiMode bool) error {
 	// Get plan stats
 	planStats, err := service.GetPlanStats(ctx, planID)
 	if err != nil {
@@ -108,6 +121,10 @@ func displayPlanStats(ctx context.Context, service *stats.Service, planID string
 
 	if jsonOutput {
 		return printJSON(planStats)
+	}
+
+	if tuiMode {
+		return launchTUI(nil, planStats)
 	}
 
 	return printPlanStatsText(planStats)
@@ -291,4 +308,16 @@ func (a *statsSessionServiceAdapter) List(ctx context.Context, planID string, li
 func (a *statsSessionServiceAdapter) ListAll(ctx context.Context) ([]*session.Session, error) {
 	// Empty planID means all sessions
 	return a.repo.List(ctx, "", 0)
+}
+
+// launchTUI starts the Bubble Tea program with the stats model.
+func launchTUI(totalStats *stats.TotalStats, planStats *stats.PlanStats) error {
+	model := tui.NewStatsModel(totalStats, planStats)
+	p := tea.NewProgram(model)
+
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("failed to run TUI: %w", err)
+	}
+
+	return nil
 }
