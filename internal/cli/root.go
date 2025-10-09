@@ -82,6 +82,7 @@ func init() {
 	rootCmd.AddCommand(stopCmd())
 	rootCmd.AddCommand(statusCmd())
 	rootCmd.AddCommand(showCmd())
+	rootCmd.AddCommand(statsCmd())
 }
 
 // getConfig loads configuration from file or returns defaults.

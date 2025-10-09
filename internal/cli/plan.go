@@ -149,6 +149,8 @@ Examples:
 }
 
 // formatStatus returns a human-friendly status string with indicators.
+//
+//nolint:goconst // Status strings used in switch statement
 func formatStatus(status string) string {
 	switch status {
 	case "completed":
