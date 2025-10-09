@@ -82,7 +82,7 @@ Examples:
 			if len(args) > 0 {
 				// Plan-specific report
 				planID := args[0]
-				planStats, err := statsService.GetPlanStats(ctx, planID)
+				planStats, err := statsService.GetPlanStats(ctx, planID, tr)
 				if err != nil {
 					return fmt.Errorf("failed to get plan stats: %w", err)
 				}
@@ -93,7 +93,7 @@ Examples:
 				}
 			} else {
 				// Full or summary report
-				totalStats, err := statsService.GetTotalStats(ctx)
+				totalStats, err := statsService.GetTotalStats(ctx, tr)
 				if err != nil {
 					return fmt.Errorf("failed to get total stats: %w", err)
 				}
@@ -108,7 +108,7 @@ Examples:
 
 				case "full":
 					// Full report with plans and daily breakdown
-					planStatsMap, err := statsService.GetAllPlanStats(ctx)
+					planStatsMap, err := statsService.GetAllPlanStats(ctx, tr)
 					if err != nil {
 						return fmt.Errorf("failed to get plan stats: %w", err)
 					}

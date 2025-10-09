@@ -41,8 +41,13 @@ func NewService(planService PlanService, sessionService SessionService) *Service
 }
 
 // GetTotalStats computes aggregate statistics across all learning activity.
-// It loads all plans and sessions, then uses the calculator functions.
-func (s *Service) GetTotalStats(ctx context.Context) (*TotalStats, error) {
+// It loads all plans and sessions, filters by time range, then uses the calculator functions.
+func (s *Service) GetTotalStats(ctx context.Context, timeRange TimeRange) (*TotalStats, error) {
+	// Validate time range
+	if err := timeRange.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid time range: %w", err)
+	}
+
 	// Load all plan records (metadata only)
 	planRecords, err := s.planService.List(ctx, nil)
 	if err != nil {
@@ -65,10 +70,12 @@ func (s *Service) GetTotalStats(ctx context.Context) (*TotalStats, error) {
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
 	}
 
-	// Convert pointers to values
-	sessionValues := make([]session.Session, len(sessions))
+	// Convert pointers to values and filter by time range
+	sessionValues := make([]session.Session, 0, len(sessions))
 	for i := range sessions {
-		sessionValues[i] = *sessions[i]
+		if timeRange.Contains(sessions[i].StartTime) {
+			sessionValues = append(sessionValues, *sessions[i])
+		}
 	}
 
 	// Calculate stats
@@ -78,8 +85,13 @@ func (s *Service) GetTotalStats(ctx context.Context) (*TotalStats, error) {
 }
 
 // GetPlanStats computes statistics for a specific learning plan.
-// It loads the plan and its sessions, then calculates plan-specific metrics.
-func (s *Service) GetPlanStats(ctx context.Context, planID string) (*PlanStats, error) {
+// It loads the plan and its sessions, filters by time range, then calculates plan-specific metrics.
+func (s *Service) GetPlanStats(ctx context.Context, planID string, timeRange TimeRange) (*PlanStats, error) {
+	// Validate time range
+	if err := timeRange.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid time range: %w", err)
+	}
+
 	// Load full plan with chunks
 	p, err := s.planService.Get(ctx, planID)
 	if err != nil {
@@ -92,10 +104,12 @@ func (s *Service) GetPlanStats(ctx context.Context, planID string) (*PlanStats, 
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
 	}
 
-	// Convert pointers to values
-	sessionValues := make([]session.Session, len(sessions))
+	// Convert pointers to values and filter by time range
+	sessionValues := make([]session.Session, 0, len(sessions))
 	for i := range sessions {
-		sessionValues[i] = *sessions[i]
+		if timeRange.Contains(sessions[i].StartTime) {
+			sessionValues = append(sessionValues, *sessions[i])
+		}
 	}
 
 	// Calculate stats
@@ -187,7 +201,12 @@ func (s *Service) GetActiveDays(ctx context.Context) ([]DailyStats, error) {
 
 // GetAllPlanStats computes statistics for all plans and returns them as a map.
 // This is useful for dashboard views that show all plans at once.
-func (s *Service) GetAllPlanStats(ctx context.Context) (map[string]PlanStats, error) {
+func (s *Service) GetAllPlanStats(ctx context.Context, timeRange TimeRange) (map[string]PlanStats, error) {
+	// Validate time range
+	if err := timeRange.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid time range: %w", err)
+	}
+
 	// Load all plan records
 	planRecords, err := s.planService.List(ctx, nil)
 	if err != nil {
@@ -210,10 +229,12 @@ func (s *Service) GetAllPlanStats(ctx context.Context) (map[string]PlanStats, er
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
 	}
 
-	// Convert pointers to values
-	sessionValues := make([]session.Session, len(sessions))
+	// Convert pointers to values and filter by time range
+	sessionValues := make([]session.Session, 0, len(sessions))
 	for i := range sessions {
-		sessionValues[i] = *sessions[i]
+		if timeRange.Contains(sessions[i].StartTime) {
+			sessionValues = append(sessionValues, *sessions[i])
+		}
 	}
 
 	// Aggregate by plan

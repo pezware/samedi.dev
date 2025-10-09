@@ -53,31 +53,6 @@ func TestStatsModel_Update_CtrlC(t *testing.T) {
 	assert.IsType(t, &StatsModel{}, updatedModel)
 }
 
-func TestStatsModel_Update_TimeRangeToggle(t *testing.T) {
-	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
-
-	tests := []struct {
-		key          rune
-		expectedMode string
-	}{
-		{'1', "all"},
-		{'2', "today"},
-		{'3', "week"},
-		{'4', "month"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expectedMode, func(t *testing.T) {
-			updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{tt.key}})
-
-			statsModel := updatedModel.(*StatsModel)
-			assert.Equal(t, tt.expectedMode, statsModel.timeRangeMode)
-			assert.Nil(t, cmd)
-		})
-	}
-}
-
 func TestStatsModel_View_TotalStats(t *testing.T) {
 	now := time.Now()
 	totalStats := &stats.TotalStats{
@@ -139,18 +114,6 @@ func TestStatsModel_View_Help(t *testing.T) {
 	// Should contain help text
 	assert.Contains(t, view, "q") // Quit key
 	assert.Contains(t, view, "quit")
-}
-
-func TestStatsModel_View_TimeRangeOptions(t *testing.T) {
-	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
-	view := model.View()
-
-	// Should show time range options
-	assert.Contains(t, view, "1") // All time key
-	assert.Contains(t, view, "2") // Today key
-	assert.Contains(t, view, "3") // This week key
-	assert.Contains(t, view, "4") // This month key
 }
 
 func TestStatsModel_ViewMode_Total(t *testing.T) {

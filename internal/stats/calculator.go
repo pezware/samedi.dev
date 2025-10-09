@@ -14,6 +14,20 @@ import (
 func CalculateTotalStats(sessions []session.Session, plans []plan.Plan) TotalStats {
 	stats := TotalStats{}
 
+	// Count active and completed plans FIRST (doesn't depend on sessions)
+	// Active = not-started or in-progress (exclude archived)
+	// Completed = completed status
+	for i := range plans {
+		switch plans[i].Status {
+		case plan.StatusNotStarted, plan.StatusInProgress:
+			stats.ActivePlans++
+		case plan.StatusCompleted:
+			stats.CompletedPlans++
+			// StatusArchived and others are not counted
+		}
+	}
+
+	// If no sessions, return early with plan counts
 	if len(sessions) == 0 {
 		return stats
 	}
@@ -36,20 +50,7 @@ func CalculateTotalStats(sessions []session.Session, plans []plan.Plan) TotalSta
 	stats.AverageSession = float64(totalMinutes) / float64(len(sessions))
 	stats.LastSessionDate = lastSession
 
-	// Count active and completed plans
-	// Active = not-started or in-progress (exclude archived)
-	// Completed = completed status
-	for i := range plans {
-		switch plans[i].Status {
-		case plan.StatusNotStarted, plan.StatusInProgress:
-			stats.ActivePlans++
-		case plan.StatusCompleted:
-			stats.CompletedPlans++
-			// StatusArchived and others are not counted
-		}
-	}
-
-	// Calculate streak (will be implemented in streak.go)
+	// Calculate streak
 	stats.CurrentStreak, stats.LongestStreak = CalculateStreak(sessions)
 
 	return stats

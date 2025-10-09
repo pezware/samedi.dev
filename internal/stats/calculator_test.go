@@ -38,6 +38,24 @@ func TestCalculateTotalStats(t *testing.T) {
 			},
 		},
 		{
+			name:     "plans exist but no sessions (bug fix test)",
+			sessions: []session.Session{},
+			plans: []plan.Plan{
+				{ID: "p1", Status: plan.StatusNotStarted},
+				{ID: "p2", Status: plan.StatusInProgress},
+				{ID: "p3", Status: plan.StatusCompleted},
+			},
+			want: TotalStats{
+				TotalHours:     0,
+				TotalSessions:  0,
+				ActivePlans:    2, // p1 (not-started) + p2 (in-progress)
+				CompletedPlans: 1, // p3
+				CurrentStreak:  0,
+				LongestStreak:  0,
+				AverageSession: 0,
+			},
+		},
+		{
 			name: "single session",
 			sessions: []session.Session{
 				{

@@ -205,7 +205,7 @@ func TestService_GetTotalStats(t *testing.T) {
 			service := NewService(mockPlanService, mockSessionService)
 
 			// Execute
-			stats, err := service.GetTotalStats(ctx)
+			stats, err := service.GetTotalStats(ctx, NewTimeRangeAll())
 
 			// Assert
 			if tt.expectError {
@@ -304,7 +304,7 @@ func TestService_GetPlanStats(t *testing.T) {
 			service := NewService(mockPlanService, mockSessionService)
 
 			// Execute
-			stats, err := service.GetPlanStats(ctx, tt.planID)
+			stats, err := service.GetPlanStats(ctx, tt.planID, NewTimeRangeAll())
 
 			// Assert
 			if tt.expectError {

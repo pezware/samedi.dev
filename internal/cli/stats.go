@@ -51,9 +51,29 @@ Examples:
 				return fmt.Errorf("failed to get tui flag: %w", err)
 			}
 
-			timeRange, err := cmd.Flags().GetString("range")
+			timeRangeStr, err := cmd.Flags().GetString("range")
 			if err != nil {
 				return fmt.Errorf("failed to get range flag: %w", err)
+			}
+
+			breakdown, err := cmd.Flags().GetBool("breakdown")
+			if err != nil {
+				return fmt.Errorf("failed to get breakdown flag: %w", err)
+			}
+
+			// Parse time range
+			var tr stats.TimeRange
+			switch timeRangeStr {
+			case "all":
+				tr = stats.NewTimeRangeAll()
+			case "today":
+				tr = stats.NewTimeRangeToday()
+			case "this-week":
+				tr = stats.NewTimeRangeThisWeek()
+			case "this-month":
+				tr = stats.NewTimeRangeThisMonth()
+			default:
+				return fmt.Errorf("invalid time range: %s (supported: all, today, this-week, this-month)", timeRangeStr)
 			}
 
 			// Initialize stats service
@@ -65,11 +85,11 @@ Examples:
 			// If plan ID provided, show plan stats
 			if len(args) > 0 {
 				planID := args[0]
-				return displayPlanStats(ctx, statsService, planID, jsonOutput, tuiMode)
+				return displayPlanStats(ctx, statsService, planID, tr, jsonOutput, tuiMode, breakdown)
 			}
 
 			// Otherwise show total stats
-			return displayTotalStats(ctx, statsService, timeRange, jsonOutput, tuiMode)
+			return displayTotalStats(ctx, statsService, tr, jsonOutput, tuiMode, breakdown)
 		},
 	}
 
@@ -82,10 +102,9 @@ Examples:
 }
 
 // displayTotalStats shows aggregate statistics across all learning.
-// timeRange parameter reserved for future filtering functionality.
-func displayTotalStats(ctx context.Context, service *stats.Service, _ string, jsonOutput, tuiMode bool) error {
-	// Get total stats
-	totalStats, err := service.GetTotalStats(ctx)
+func displayTotalStats(ctx context.Context, service *stats.Service, timeRange stats.TimeRange, jsonOutput, tuiMode, breakdown bool) error {
+	// Get total stats with time range filtering
+	totalStats, err := service.GetTotalStats(ctx, timeRange)
 	if err != nil {
 		return fmt.Errorf("failed to get total stats: %w", err)
 	}
@@ -101,6 +120,18 @@ func displayTotalStats(ctx context.Context, service *stats.Service, _ string, js
 	totalStats.LongestStreak = longestStreak
 
 	if jsonOutput {
+		// If breakdown requested, include daily stats in JSON output
+		if breakdown {
+			dailyStats, err := service.GetDailyStats(ctx, timeRange)
+			if err != nil {
+				return fmt.Errorf("failed to get daily stats: %w", err)
+			}
+			output := map[string]interface{}{
+				"total": totalStats,
+				"daily": dailyStats,
+			}
+			return printJSON(output)
+		}
 		return printJSON(totalStats)
 	}
 
@@ -108,26 +139,128 @@ func displayTotalStats(ctx context.Context, service *stats.Service, _ string, js
 		return launchTUI(totalStats, nil)
 	}
 
-	return printTotalStatsText(totalStats)
+	// Print total stats
+	if err := printTotalStatsText(totalStats); err != nil {
+		return err
+	}
+
+	// If breakdown requested, print daily stats
+	if breakdown {
+		fmt.Println("\n📅 Daily Breakdown")
+		fmt.Println(strings.Repeat("─", 50))
+
+		dailyStats, err := service.GetDailyStats(ctx, timeRange)
+		if err != nil {
+			return fmt.Errorf("failed to get daily stats: %w", err)
+		}
+
+		if len(dailyStats) == 0 {
+			fmt.Println("No activity in selected time range.")
+		} else {
+			for _, ds := range dailyStats {
+				fmt.Printf("\n%s:\n", ds.Date.Format("Monday, January 2, 2006"))
+				fmt.Printf("  ⏱️  Duration: %.1f hours (%d minutes)\n", ds.Hours(), ds.Duration)
+				fmt.Printf("  📊 Sessions: %d\n", ds.SessionCount)
+				if len(ds.Plans) > 0 {
+					fmt.Printf("  📚 Plans: %s\n", strings.Join(ds.Plans, ", "))
+				}
+			}
+		}
+		fmt.Println()
+	}
+
+	return nil
 }
 
 // displayPlanStats shows statistics for a specific plan.
-func displayPlanStats(ctx context.Context, service *stats.Service, planID string, jsonOutput, tuiMode bool) error {
-	// Get plan stats
-	planStats, err := service.GetPlanStats(ctx, planID)
+func displayPlanStats(ctx context.Context, service *stats.Service, planID string, timeRange stats.TimeRange, jsonOutput, tuiMode, breakdown bool) error {
+	// Get plan stats with time range filtering
+	planStats, err := service.GetPlanStats(ctx, planID, timeRange)
 	if err != nil {
 		return fmt.Errorf("failed to get plan stats: %w", err)
 	}
 
 	if jsonOutput {
-		return printJSON(planStats)
+		return printPlanStatsJSON(ctx, service, planID, timeRange, planStats, breakdown)
 	}
 
 	if tuiMode {
 		return launchTUI(nil, planStats)
 	}
 
-	return printPlanStatsText(planStats)
+	// Print plan stats
+	if err := printPlanStatsText(planStats); err != nil {
+		return err
+	}
+
+	// If breakdown requested, print daily stats for this plan
+	if breakdown {
+		return printPlanBreakdown(ctx, service, planID, timeRange)
+	}
+
+	return nil
+}
+
+// printPlanStatsJSON outputs plan stats in JSON format with optional breakdown.
+func printPlanStatsJSON(ctx context.Context, service *stats.Service, planID string, timeRange stats.TimeRange, planStats *stats.PlanStats, breakdown bool) error {
+	if !breakdown {
+		return printJSON(planStats)
+	}
+
+	dailyStats, err := service.GetDailyStats(ctx, timeRange)
+	if err != nil {
+		return fmt.Errorf("failed to get daily stats: %w", err)
+	}
+
+	// Filter daily stats for this plan only
+	planDaily := []stats.DailyStats{}
+	for _, ds := range dailyStats {
+		for _, pid := range ds.Plans {
+			if pid == planID {
+				planDaily = append(planDaily, ds)
+				break
+			}
+		}
+	}
+
+	output := map[string]interface{}{
+		"plan":  planStats,
+		"daily": planDaily,
+	}
+	return printJSON(output)
+}
+
+// printPlanBreakdown prints daily breakdown for a specific plan.
+func printPlanBreakdown(ctx context.Context, service *stats.Service, planID string, timeRange stats.TimeRange) error {
+	fmt.Println("\n📅 Daily Breakdown")
+	fmt.Println(strings.Repeat("─", 50))
+
+	dailyStats, err := service.GetDailyStats(ctx, timeRange)
+	if err != nil {
+		return fmt.Errorf("failed to get daily stats: %w", err)
+	}
+
+	// Filter for this plan
+	found := false
+	for _, ds := range dailyStats {
+		for _, pid := range ds.Plans {
+			if pid != planID {
+				continue
+			}
+			fmt.Printf("\n%s:\n", ds.Date.Format("Monday, January 2, 2006"))
+			fmt.Printf("  ⏱️  Duration: %.1f hours (%d minutes)\n", ds.Hours(), ds.Duration)
+			fmt.Printf("  📊 Sessions: %d\n", ds.SessionCount)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		fmt.Println("No activity in selected time range.")
+	}
+	fmt.Println()
+
+	return nil
 }
 
 // printTotalStatsText formats total stats as human-readable text.
