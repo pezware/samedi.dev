@@ -141,3 +141,29 @@ func TestStatsModel_ViewMode_Plan(t *testing.T) {
 	assert.Contains(t, view, "Test Plan")
 	assert.Contains(t, view, "25.0")
 }
+
+// Test new view state functionality for Stage 6
+
+func TestStatsModel_InitialViewState(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Should start at overview
+	assert.Equal(t, viewOverview, model.currentView)
+}
+
+func TestStatsModel_InitialViewHistory(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Should start with empty history
+	assert.Empty(t, model.viewHistory)
+}
+
+func TestStatsModel_InitialSelectedPlanID(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Should start with no selected plan
+	assert.Equal(t, "", model.selectedPlanID)
+}

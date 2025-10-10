@@ -13,13 +13,29 @@ import (
 	"github.com/pezware/samedi.dev/internal/tui/components"
 )
 
+// viewState represents the current view in the stats TUI.
+type viewState string
+
+const (
+	viewOverview       viewState = "overview"        // Default stats overview
+	viewPlanList       viewState = "plan-list"       // List of all plans
+	viewPlanDetail     viewState = "plan-detail"     // Single plan drill-down
+	viewSessionHistory viewState = "session-history" // Session list
+	viewExport         viewState = "export-dialog"   // Export configuration
+)
+
 // StatsModel is the Bubble Tea model for the stats dashboard.
 type StatsModel struct {
 	totalStats *stats.TotalStats
 	planStats  *stats.PlanStats
-	viewMode   string // "total" or "plan"
+	viewMode   string // "total" or "plan" - kept for backward compatibility
 	width      int
 	height     int
+
+	// New fields for multi-view navigation
+	currentView    viewState   // Current active view
+	viewHistory    []viewState // Stack for back navigation
+	selectedPlanID string      // Plan ID for drill-down context
 }
 
 // NewStatsModel creates a new stats model.
@@ -31,11 +47,13 @@ func NewStatsModel(totalStats *stats.TotalStats, planStats *stats.PlanStats) *St
 	}
 
 	return &StatsModel{
-		totalStats: totalStats,
-		planStats:  planStats,
-		viewMode:   viewMode,
-		width:      80,
-		height:     24,
+		totalStats:  totalStats,
+		planStats:   planStats,
+		viewMode:    viewMode,
+		width:       80,
+		height:      24,
+		currentView: viewOverview,  // Start at overview
+		viewHistory: []viewState{}, // Empty history stack
 	}
 }
 
