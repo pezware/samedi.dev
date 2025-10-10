@@ -183,85 +183,236 @@ GROUP BY STRFTIME('%w', start_time)
 ORDER BY CAST(STRFTIME('%w', start_time) AS INTEGER);
 ```
 
-## Dashboard Views
+## Dashboard Views (TUI)
 
-### 1. Main Dashboard (TUI)
+The interactive TUI provides multiple views for exploring your learning statistics with keyboard navigation.
 
-**Command**: `samedi stats` or `samedi` (no args)
+### 1. Overview Dashboard
 
-```
-┌─ Learning Dashboard ───────────────────────────────────────┐
-│                                                             │
-│  Total Learning Time: 127.5 hours                          │
-│  Active Plans: 3 | Completed: 1                            │
-│  Current Streak: 12 days 🔥 (Longest: 18 days)             │
-│                                                             │
-│  This Week:                                                │
-│  ████████████████████░░░░░░░░ 18.5 / 25 hours (74%)        │
-│                                                             │
-│  By Plan:                                                  │
-│  french-b1       ████████░░  12h   24%  (12/50 chunks)     │
-│  rust-async      ██████████  20h  100%  (20/20 chunks) ✓   │
-│  music-theory    ░░░░░░░░░░   0h    0%  (0/30 chunks)      │
-│                                                             │
-│  Recent Sessions:                                          │
-│  2h ago  french-b1 (Chunk 3: Past Tense)       1h 15min    │
-│  1d ago  french-b1 (Chunk 2: Present Tense)    1h 30min    │
-│  2d ago  rust-async (Chunk 20: Deployment)     2h 00min    │
-│                                                             │
-│  Flashcards: 205 total | 28 due today                      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+**Command**: `samedi stats --tui` or `samedi stats <plan-id> --tui`
 
-[p] Plans  [s] Sessions  [c] Cards  [w] Weekly  [m] Monthly  [e] Export  [q] Quit
-```
-
-**Key Interactions**:
-- `p`: Drill into plan details
-- `s`: View session history
-- `c`: Card statistics
-- `w`: Weekly breakdown
-- `m`: Monthly summary
-- `e`: Export report
-
-### 2. Plan Details
-
-**Command**: `samedi stats french-b1`
+The default view shows aggregate learning statistics:
 
 ```
-┌─ French B1 Mastery ────────────────────────────────────────┐
-│                                                             │
-│  Progress: ████████░░░░░░░░░░ 24% (12/50 chunks)           │
-│  Time Spent: 12.5 / 50 hours (25%)                         │
-│  Status: in-progress | Created: 2024-01-15                 │
-│                                                             │
-│  Learning Velocity:                                        │
-│  ┌─────────────────────────────────────────────────┐      │
-│  │  Week 1:  ███████░░░ 3.5h                       │      │
-│  │  Week 2:  █████████░ 4.5h                       │      │
-│  │  Week 3:  ████████░░ 4.0h  (current)            │      │
-│  │  Week 4:  ░░░░░░░░░░ 0h    (planned)            │      │
-│  └─────────────────────────────────────────────────┘      │
-│                                                             │
-│  Chunk Breakdown:                                          │
-│  ✓ Chunk 1: Basic Greetings (1h)        completed          │
-│  ✓ Chunk 2: Present Tense Verbs (1.5h)  completed          │
-│  → Chunk 3: Past Tense (1h)              in-progress       │
-│  ○ Chunk 4: Future Tense (1h)            not-started       │
-│  ...                                                        │
-│                                                             │
-│  Flashcards: 125 cards | 23 due | 76% success rate         │
-│                                                             │
-│  Sessions: 15 total | Avg: 50 min                          │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+📊 Learning Statistics
 
-[b] Back  [c] Chunks  [s] Sessions  [f] Flashcards  [e] Export
+⏱️  Learning Time
+   Total hours:      127.5 hours
+   Total sessions:   63
+   Average session:  121 minutes
+
+🔥 Learning Streaks
+   Current streak:   12 days
+   Longest streak:   18 days
+
+📚 Learning Plans
+   Active plans:     3
+   Completed plans:  1
+   Total plans:      4
+
+📅 Last Session
+   Friday, January 19, 2024 at 2:30 PM
+
+
+[q] quit  |  [p] plan list  |  [s] sessions  |  [e] export
+[↑/k] up  |  [↓/j] down  |  [Enter] select  |  [Esc] back
 ```
 
-### 3. Weekly View
+**Navigation**:
+- `[q]`: Quit the TUI
+- `[p]`: Switch to plan list view
+- `[s]`: Switch to session history view
+- `[e]`: Open export dialog
+- `[Esc]`: Go back to previous view
 
-**Command**: `samedi stats --this-week`
+### 2. Plan List View
+
+**Shortcut**: Press `[p]` from overview
+
+Browse all learning plans with progress indicators:
+
+```
+📚 Learning Plans
+
+┌────────────────────────────────────────────────────────┐
+│ Title              │ Progress │ Hours      │ Status    │
+├────────────────────┼──────────┼────────────┼───────────┤
+│ French B1 Mastery  │ 24%      │ 12.5 / 50  │ 🟡 In Pr… │
+│ Rust Async/Await   │ 100%     │ 20.0 / 20  │ 🟢 Compl… │
+│ Music Theory       │ 0%       │ 0.0 / 30   │ ⚪ Not S… │
+└────────────────────────────────────────────────────────┘
+
+Showing 3 plans
+
+[↑/k] Up  |  [↓/j] Down  |  [Enter] View Details  |  [Esc] Back
+```
+
+**Navigation**:
+- `[↑]` or `[k]`: Move cursor up
+- `[↓]` or `[j]`: Move cursor down
+- `[Enter]`: Drill into selected plan
+- `[Esc]`: Return to overview
+
+### 3. Plan Detail View
+
+**Access**: Press `[Enter]` on a plan in plan list
+
+View detailed statistics for a specific plan:
+
+```
+📊 French B1 Mastery
+
+Status: 🟡 In Progress
+
+📈 Progress
+[████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]
+Completed: 12 / 50 chunks (24%)
+
+⏱️  Time Investment
+Total hours:      12.5 / 50.0 hours
+Sessions:         15
+Average session:  50 minutes
+
+📅 Last Session
+Friday, January 19, 2024 at 2:30 PM
+
+[s] View Sessions  |  [Esc] Back to Plan List
+```
+
+**Navigation**:
+- `[s]`: View session history filtered to this plan
+- `[Esc]`: Return to plan list
+
+### 4. Session History View
+
+**Shortcut**: Press `[s]` from overview or plan detail
+
+Browse all learning sessions with optional plan filtering:
+
+```
+📅 Session History: French B1 Mastery
+
+┌──────────────────────────────────────────────────────────┐
+│ Date            │ Plan      │ Duration │ Notes           │
+├─────────────────┼───────────┼──────────┼─────────────────┤
+│ Jan 19, 14:30   │ french-b1 │ 1h 30m   │ Past tense ex…  │
+│ Jan 18, 10:00   │ french-b1 │ 1h 15m   │ Present tense…  │
+│ Jan 17, 16:30   │ french-b1 │ 2h 00m   │ Basic greetings │
+└──────────────────────────────────────────────────────────┘
+
+Showing 15 sessions
+
+[↑/k] Up  |  [↓/j] Down  |  [Esc] Back
+```
+
+**Features**:
+- Automatically filters to current plan when accessed from plan detail view
+- Shows all sessions when accessed from overview
+- Displays up to 20 sessions at a time with cursor navigation
+- Truncates long notes for readability
+
+**Navigation**:
+- `[↑]` or `[k]`: Move cursor up
+- `[↓]` or `[j]`: Move cursor down
+- `[Esc]`: Return to previous view
+
+### 5. Export Dialog
+
+**Shortcut**: Press `[e]` from any view
+
+Quick access to export options:
+
+```
+📤 Export Learning Report
+
+Select export type:
+
+  [1] Summary Report
+      Quick overview of your learning progress
+
+  [2] Full Report
+      Detailed report with daily breakdowns
+
+
+Note: Report will be printed to terminal. Use shell redirection to save to file.
+      Example: samedi stats --tui (then press 'e' and Enter) > report.md
+
+[↑/k] Up  |  [↓/j] Down  |  [Enter] Export  |  [Esc] Cancel
+```
+
+**Navigation**:
+- `[↑]` or `[k]`: Move to previous option
+- `[↓]` or `[j]`: Move to next option
+- `[Enter]`: Select export type (returns to previous view)
+- `[Esc]`: Cancel and return
+
+**Note**: Actual export functionality uses CLI commands with output redirection:
+- `samedi stats --json > stats.json` - JSON format
+- `samedi stats > report.txt` - Text format
+- `samedi stats --breakdown > detailed.txt` - With daily breakdown
+
+## CLI Output Formats
+
+### Text Output (Default)
+
+**Command**: `samedi stats` or `samedi stats <plan-id>`
+
+Displays statistics in a clean, readable text format suitable for terminal viewing.
+
+### JSON Output
+
+**Command**: `samedi stats --json`
+
+Machine-readable format for integration with other tools or automation.
+
+### Time Range Filtering
+
+All stats commands support time range filtering:
+
+**Commands**:
+- `samedi stats --range all` - All time statistics (default)
+- `samedi stats --range today` - Today's activity only
+- `samedi stats --range this-week` - Current week
+- `samedi stats --range this-month` - Current month
+
+**Examples**:
+```bash
+# Today's stats as JSON
+samedi stats --range today --json
+
+# This week's stats for specific plan
+samedi stats rust-async --range this-week
+
+# This month with daily breakdown
+samedi stats --range this-month --breakdown
+```
+
+### Daily Breakdown
+
+**Command**: `samedi stats --breakdown`
+
+Includes daily statistics with sessions grouped by date:
+
+```
+📅 Daily Breakdown
+──────────────────────────────────────────────────
+
+Friday, January 19, 2024:
+  ⏱️  Duration: 3.5 hours (210 minutes)
+  📊 Sessions: 3
+  📚 Plans: french-b1, music-theory
+
+Thursday, January 18, 2024:
+  ⏱️  Duration: 2.0 hours (120 minutes)
+  📊 Sessions: 2
+  📚 Plans: french-b1
+```
+
+## Future Dashboard Views (Planned)
+
+### Weekly View
+
+**Command**: `samedi stats --range this-week --tui`
 
 ```
 ┌─ This Week (Jan 15-21, 2024) ─────────────────────────────┐

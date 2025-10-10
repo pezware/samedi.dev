@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/stats"
 	"github.com/pezware/samedi.dev/internal/tui/components"
 )
@@ -39,6 +40,14 @@ type StatsModel struct {
 	selectedPlan   *stats.PlanStats  // Detailed stats for selected plan
 	allPlanStats   []stats.PlanStats // All plan statistics for list view
 	planListCursor int               // Current cursor position in plan list (0-indexed)
+
+	// Session history fields
+	sessions             []*session.Session // All sessions for history view
+	sessionHistoryCursor int                // Current cursor in session list
+
+	// Export dialog fields
+	exportType       string // "summary" or "full"
+	exportMenuCursor int    // Cursor in export menu
 }
 
 // NewStatsModel creates a new stats model.
@@ -69,6 +78,12 @@ func (m *StatsModel) Init() tea.Cmd {
 func (m *StatsModel) SetAllPlanStats(planStats []stats.PlanStats) {
 	m.allPlanStats = planStats
 	m.planListCursor = 0 // Reset cursor
+}
+
+// SetSessions sets the list of sessions for the session history view.
+func (m *StatsModel) SetSessions(sessions []*session.Session) {
+	m.sessions = sessions
+	m.sessionHistoryCursor = 0 // Reset cursor
 }
 
 // switchView transitions to a new view and updates history stack.
@@ -149,6 +164,20 @@ func (m *StatsModel) handleEnterKey() (tea.Model, tea.Cmd) {
 		m.selectedPlan = &selectedStat
 		return m.switchView(viewPlanDetail)
 	}
+
+	if m.currentView == viewExport {
+		// Store export type based on selection
+		if m.exportMenuCursor == 0 {
+			m.exportType = "summary"
+		} else {
+			m.exportType = "full"
+		}
+		// Note: Actual export happens via CLI commands (samedi report)
+		// TUI mode is for viewing, CLI for exporting
+		// Return to previous view (showing the selection was registered)
+		return m.goBack()
+	}
+
 	return m, nil
 }
 
@@ -158,12 +187,24 @@ func (m *StatsModel) handleRuneKey(r rune) (tea.Model, tea.Cmd) {
 	case 'q':
 		return m, tea.Quit
 	case 'p':
+		// Don't switch if already on plan list view
+		if m.currentView == viewPlanList {
+			return m, nil
+		}
 		return m.switchView(viewPlanList)
 	case 's':
+		// Don't switch if already on session history view
+		if m.currentView == viewSessionHistory {
+			return m, nil
+		}
 		// If in plan detail view, switch to session history filtered by this plan
 		// Otherwise, switch to session history (all sessions)
 		return m.switchView(viewSessionHistory)
 	case 'e':
+		// Don't switch if already on export dialog view
+		if m.currentView == viewExport {
+			return m, nil
+		}
 		return m.switchView(viewExport)
 	case 'j':
 		return m.handleArrowKey(1)
@@ -188,7 +229,28 @@ func (m *StatsModel) handleArrowKey(direction int) (*StatsModel, tea.Cmd) {
 			m.planListCursor = 0
 		}
 	}
-	// Add other list views here in future phases
+
+	// Handle session history navigation
+	if m.currentView == viewSessionHistory && len(m.sessions) > 0 {
+		m.sessionHistoryCursor += direction
+		// Wrap around
+		if m.sessionHistoryCursor < 0 {
+			m.sessionHistoryCursor = len(m.sessions) - 1
+		} else if m.sessionHistoryCursor >= len(m.sessions) {
+			m.sessionHistoryCursor = 0
+		}
+	}
+
+	// Handle export menu navigation
+	if m.currentView == viewExport {
+		m.exportMenuCursor += direction
+		// Wrap around (2 options: summary and full)
+		if m.exportMenuCursor < 0 {
+			m.exportMenuCursor = 1
+		} else if m.exportMenuCursor > 1 {
+			m.exportMenuCursor = 0
+		}
+	}
 
 	return m, nil
 }
@@ -377,24 +439,244 @@ func (m *StatsModel) renderPlanDetailHelp() string {
 	return helpStyle.Render("[s] View Sessions  |  [Esc] Back to Plan List")
 }
 
-// renderSessionHistory renders the session history view (stub for Phase 3.1).
+// renderSessionHistory renders the session history view with filtering and navigation.
 func (m *StatsModel) renderSessionHistory() string {
-	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	return lipgloss.NewStyle().Padding(2).Render(
-		"📅 Session History View\n\n" +
-			"Coming soon in Phase 3.1...\n\n" +
-			helpStyle.Render("[Esc] Back to Overview"),
-	)
+	var content strings.Builder
+
+	// Title
+	title := m.getSessionHistoryTitle()
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("12")).
+		PaddingBottom(1)
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Filter sessions
+	filteredSessions := m.filterSessionsByPlan()
+
+	// Empty state
+	if len(filteredSessions) == 0 {
+		content.WriteString(m.renderSessionHistoryEmpty())
+		return content.String()
+	}
+
+	// Build table
+	table := m.buildSessionTable(filteredSessions)
+	content.WriteString(table)
+	content.WriteString("\n\n")
+
+	// Footer
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	content.WriteString(footerStyle.Render(fmt.Sprintf("Showing %d sessions", len(filteredSessions))))
+	content.WriteString("\n\n")
+
+	// Help
+	content.WriteString(m.renderSessionHistoryHelp())
+
+	return content.String()
 }
 
-// renderExportDialog renders the export dialog view (stub for Phase 4.1).
-func (m *StatsModel) renderExportDialog() string {
+// getSessionHistoryTitle returns the title for session history view with optional plan filter.
+func (m *StatsModel) getSessionHistoryTitle() string {
+	if m.selectedPlanID != "" && m.selectedPlan != nil {
+		return fmt.Sprintf("📅 Session History: %s", m.selectedPlan.PlanTitle)
+	}
+	return "📅 Session History"
+}
+
+// filterSessionsByPlan filters sessions by selected plan if applicable.
+func (m *StatsModel) filterSessionsByPlan() []*session.Session {
+	if m.selectedPlanID == "" {
+		return m.sessions
+	}
+
+	filtered := make([]*session.Session, 0)
+	for _, s := range m.sessions {
+		if s.PlanID == m.selectedPlanID {
+			filtered = append(filtered, s)
+		}
+	}
+	return filtered
+}
+
+// renderSessionHistoryEmpty renders empty state for session history.
+func (m *StatsModel) renderSessionHistoryEmpty() string {
+	var content strings.Builder
+	emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	content.WriteString(emptyStyle.Render("No sessions found."))
+	content.WriteString("\n\n")
+	content.WriteString(m.renderSessionHistoryHelp())
+	return content.String()
+}
+
+// buildSessionTable builds the session table with pagination.
+func (m *StatsModel) buildSessionTable(filteredSessions []*session.Session) string {
+	table := components.NewTable([]string{"Date", "Plan", "Duration", "Notes"})
+
+	// Paginate sessions (max 20 visible)
+	displaySessions := m.paginateSessions(filteredSessions, 20)
+
+	// Add rows
+	for i, sess := range displaySessions {
+		row := m.formatSessionRow(sess, i == m.sessionHistoryCursor)
+		table.AddRow(row)
+	}
+
+	return table.View()
+}
+
+// paginateSessions returns a slice of sessions to display based on cursor position.
+func (m *StatsModel) paginateSessions(sessions []*session.Session, maxDisplay int) []*session.Session {
+	if len(sessions) <= maxDisplay {
+		return sessions
+	}
+
+	// Center window around cursor
+	start := m.sessionHistoryCursor - maxDisplay/2
+	if start < 0 {
+		start = 0
+	}
+
+	end := start + maxDisplay
+	if end > len(sessions) {
+		end = len(sessions)
+		start = end - maxDisplay
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	return sessions[start:end]
+}
+
+// formatSessionRow formats a single session as a table row.
+func (m *StatsModel) formatSessionRow(sess *session.Session, isSelected bool) []string {
+	// Format values
+	dateStr := sess.StartTime.Format("Jan 2, 2006 15:04")
+	planID := truncateString(sess.PlanID, 15)
+	durationStr := sess.ElapsedTime()
+	notesPreview := formatNotes(sess.Notes, 30)
+
+	// Apply highlighting if selected
+	if isSelected {
+		highlightStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("0")).
+			Background(lipgloss.Color("12")).
+			Bold(true)
+		dateStr = highlightStyle.Render(dateStr)
+		planID = highlightStyle.Render(planID)
+		durationStr = highlightStyle.Render(durationStr)
+		notesPreview = highlightStyle.Render(notesPreview)
+	}
+
+	return []string{dateStr, planID, durationStr, notesPreview}
+}
+
+// truncateString truncates a string to maxLen with ellipsis.
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// formatNotes formats notes for display in table.
+func formatNotes(notes string, maxLen int) string {
+	// Remove newlines
+	notes = strings.ReplaceAll(notes, "\n", " ")
+
+	// Truncate if needed
+	if len(notes) > maxLen {
+		notes = notes[:maxLen-3] + "..."
+	}
+
+	// Return dash if empty
+	if notes == "" {
+		return "-"
+	}
+
+	return notes
+}
+
+// renderSessionHistoryHelp renders help text for the session history view.
+func (m *StatsModel) renderSessionHistoryHelp() string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	return lipgloss.NewStyle().Padding(2).Render(
-		"📤 Export Dialog\n\n" +
-			"Coming soon in Phase 4.1...\n\n" +
-			helpStyle.Render("[Esc] Cancel and go back"),
-	)
+	return helpStyle.Render("[↑/k] Up  |  [↓/j] Down  |  [Esc] Back")
+}
+
+// renderExportDialog renders the export dialog with options for quick export.
+func (m *StatsModel) renderExportDialog() string {
+	var content strings.Builder
+
+	// Title
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("12")).
+		PaddingBottom(1)
+
+	content.WriteString(titleStyle.Render("📤 Export Learning Report"))
+	content.WriteString("\n\n")
+
+	// Info text
+	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	content.WriteString(infoStyle.Render("Select export type:"))
+	content.WriteString("\n\n")
+
+	// Export options
+	exportOptions := []struct {
+		name        string
+		description string
+	}{
+		{"Summary Report", "Quick overview of your learning progress"},
+		{"Full Report", "Detailed report with daily breakdowns"},
+	}
+
+	for i, option := range exportOptions {
+		optionStyle := lipgloss.NewStyle()
+
+		// Highlight selected option
+		if i == m.exportMenuCursor {
+			optionStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("0")).
+				Background(lipgloss.Color("12")).
+				Bold(true).
+				Width(50)
+		}
+
+		nameText := fmt.Sprintf("  [%d] %s", i+1, option.name)
+		content.WriteString(optionStyle.Render(nameText))
+		content.WriteString("\n")
+
+		if i == m.exportMenuCursor {
+			descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8")).PaddingLeft(6)
+			content.WriteString(descStyle.Render(option.description))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
+	}
+
+	content.WriteString("\n")
+
+	// Note about output
+	noteStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("11")).
+		Italic(true)
+	content.WriteString(noteStyle.Render("Note: Report will be printed to terminal. Use shell redirection to save to file."))
+	content.WriteString("\n")
+	content.WriteString(noteStyle.Render("      Example: samedi stats --tui (then press 'e' and Enter) > report.md"))
+	content.WriteString("\n\n")
+
+	// Help
+	content.WriteString(m.renderExportHelp())
+
+	return content.String()
+}
+
+// renderExportHelp renders help text for the export dialog.
+func (m *StatsModel) renderExportHelp() string {
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	return helpStyle.Render("[↑/k] Up  |  [↓/j] Down  |  [Enter] Export  |  [Esc] Cancel")
 }
 
 // renderTotalStats renders total statistics view.
@@ -513,7 +795,10 @@ func (m *StatsModel) renderHelp() string {
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("8")) // Gray
 
-	return helpStyle.Render("Press [q] to quit  |  Use --range flag to filter by time (e.g., samedi stats --range today --tui)")
+	helpText := "[q] quit  |  [p] plan list  |  [s] sessions  |  [e] export\n" +
+		"[↑/k] up  |  [↓/j] down  |  [Enter] select  |  [Esc] back"
+
+	return helpStyle.Render(helpText)
 }
 
 // formatPlanStatus formats a status string with emoji.

@@ -306,9 +306,12 @@ func TestStatsModel_View_RendersSessionHistoryStub(t *testing.T) {
 
 	view := m.View()
 
-	// Should render session history stub
-	assert.Contains(t, view, "Session History View")
-	assert.Contains(t, view, "Coming soon")
+	// Should render session history view (now implemented!)
+	assert.Contains(t, view, "Session History")
+	// Should show empty state when no sessions
+	assert.Contains(t, view, "No sessions found")
+	// Should show help
+	assert.Contains(t, view, "Esc")
 }
 
 func TestStatsModel_View_RendersExportStub(t *testing.T) {
@@ -321,9 +324,14 @@ func TestStatsModel_View_RendersExportStub(t *testing.T) {
 
 	view := m.View()
 
-	// Should render export dialog stub
-	assert.Contains(t, view, "Export Dialog")
-	assert.Contains(t, view, "Coming soon")
+	// Should render export dialog (now implemented!)
+	assert.Contains(t, view, "Export Learning Report")
+	// Should show export options
+	assert.Contains(t, view, "Summary Report")
+	assert.Contains(t, view, "Full Report")
+	// Should show help
+	assert.Contains(t, view, "Enter")
+	assert.Contains(t, view, "Esc")
 }
 
 func TestStatsModel_View_SwitchingBetweenViews(t *testing.T) {
