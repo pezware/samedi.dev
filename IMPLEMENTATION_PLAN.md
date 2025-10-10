@@ -481,6 +481,107 @@ Fixed bug where TimeRange was not applied to service method calls in report comm
 
 ---
 
+## Stage 6: TUI Enhancements (Interactive Stats Dashboard)
+
+**Goal:** Add comprehensive interactive features to the TUI stats dashboard
+
+**Status:** Not Started
+
+**Success Criteria:**
+
+- [ ] Plan drill-down view showing detailed plan statistics
+- [ ] Session history view with filtering
+- [ ] Export shortcut for quick report generation
+- [ ] View switching with keyboard navigation
+- [ ] All interactive features documented and tested
+- [ ] All tests pass
+- [ ] `make check` succeeds
+
+**Deliverables:**
+
+### 6.1 Interactive View Management
+
+- [ ] `internal/tui/stats.go` - Enhanced model with view state management
+  - Add viewState field (overview, plan-list, plan-detail, session-history)
+  - Implement view switching logic
+  - Keyboard handlers for [p]/[s]/[e] keys
+  - Navigation between views (back/forward)
+- [ ] `internal/tui/stats_test.go` - View switching tests
+  - Test view state transitions
+  - Test keyboard navigation
+  - Test view rendering for each state
+
+### 6.2 Plan Drill-Down View
+
+- [ ] `internal/tui/views/plan_list.go` - Plan list view component
+  - Display all plans with progress bars
+  - Highlight selected plan
+  - Keyboard navigation (j/k/arrow keys)
+  - Enter to view plan details
+- [ ] `internal/tui/views/plan_detail.go` - Plan detail view component
+  - Show plan-specific statistics
+  - Display chunk progress
+  - Session history for the plan
+  - Back to list navigation
+- [ ] `internal/tui/views/plan_test.go` - Plan view tests
+
+### 6.3 Session History View
+
+- [ ] `internal/tui/views/session_history.go` - Session history component
+  - List recent sessions with dates and durations
+  - Filter by plan (optional)
+  - Pagination for long lists
+  - Keyboard navigation
+- [ ] `internal/tui/views/session_test.go` - Session history tests
+
+### 6.4 Export Shortcut
+
+- [ ] `internal/tui/export.go` - Quick export functionality
+  - [e] key triggers export dialog
+  - Prompt for export type (summary/full)
+  - Prompt for time range
+  - Prompt for output file path
+  - Execute export and show confirmation
+- [ ] `internal/tui/export_test.go` - Export tests
+
+### 6.5 Documentation Updates
+
+- [ ] `docs/08-stats-analytics.md` - Update TUI documentation
+  - Document all keyboard shortcuts [p]/[s]/[e]/[q]
+  - Add screenshots/examples of each view
+  - Update usage examples
+- [ ] Update help text in TUI to show all available keys
+
+**Tests:**
+
+- View state management and transitions - 10 tests
+- Plan list rendering and navigation - 8 tests
+- Plan detail view display - 6 tests
+- Session history filtering and display - 8 tests
+- Export dialog and execution - 6 tests
+- Keyboard navigation in all views - 12 tests
+
+**Total:** 50+ tests
+
+**Implementation Notes:**
+
+- Use Bubble Tea's Model-View-Update pattern for view management
+- Reuse existing components (progress bar, table) where possible
+- Keep data loading separate from UI rendering
+- All views should handle empty states gracefully
+- Export should validate file paths and handle errors
+
+**Dependencies:**
+
+- Already added: `github.com/charmbracelet/bubbletea` ✅
+- Already added: `github.com/charmbracelet/lipgloss` ✅
+
+**Priority:** Medium - Enhances user experience but not required for core functionality
+
+**Estimated Effort:** 3-5 days
+
+---
+
 ## Definition of Done (Each Stage)
 
 Before marking a stage complete:
@@ -687,6 +788,10 @@ Before marking a stage complete:
   - **Total**: 119 tests across stats, TUI, and CLI packages
   - All quality checks passing (make check)
   - Branch: feat/stage-5-stats-calculator
+  - **Post-Review Fixes** (from Codex review):
+    - Fixed Issue 2: Report streak scoping to use global streaks
+    - Added Stage 6: TUI Enhancements for comprehensive interactive features
+    - Report command now shows all-time streaks even with time-range filtering
 
 ---
 

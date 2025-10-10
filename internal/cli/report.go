@@ -98,6 +98,14 @@ Examples:
 					return fmt.Errorf("failed to get total stats: %w", err)
 				}
 
+				// Get global streak info (not scoped to time range)
+				currentStreak, longestStreak, err := statsService.GetStreakInfo(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to get streak info: %w", err)
+				}
+				totalStats.CurrentStreak = currentStreak
+				totalStats.LongestStreak = longestStreak
+
 				switch reportType {
 				case "summary":
 					// Summary only
