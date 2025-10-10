@@ -33,9 +33,11 @@ type StatsModel struct {
 	height     int
 
 	// New fields for multi-view navigation
-	currentView    viewState   // Current active view
-	viewHistory    []viewState // Stack for back navigation
-	selectedPlanID string      // Plan ID for drill-down context
+	currentView    viewState         // Current active view
+	viewHistory    []viewState       // Stack for back navigation
+	selectedPlanID string            // Plan ID for drill-down context
+	allPlanStats   []stats.PlanStats // All plan statistics for list view
+	planListCursor int               // Current cursor position in plan list (0-indexed)
 }
 
 // NewStatsModel creates a new stats model.
@@ -60,6 +62,12 @@ func NewStatsModel(totalStats *stats.TotalStats, planStats *stats.PlanStats) *St
 // Init initializes the model.
 func (m *StatsModel) Init() tea.Cmd {
 	return nil
+}
+
+// SetAllPlanStats sets the list of all plan statistics for the plan list view.
+func (m *StatsModel) SetAllPlanStats(planStats []stats.PlanStats) {
+	m.allPlanStats = planStats
+	m.planListCursor = 0 // Reset cursor
 }
 
 // switchView transitions to a new view and updates history stack.
@@ -100,34 +108,82 @@ func (m *StatsModel) goBack() (*StatsModel, tea.Cmd) {
 func (m *StatsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return m, tea.Quit
-		case tea.KeyEsc:
-			// Go back to previous view
-			return m.goBack()
-		case tea.KeyRunes:
-			if len(msg.Runes) > 0 {
-				switch msg.Runes[0] {
-				case 'q':
-					return m, tea.Quit
-				case 'p':
-					// Switch to plan list view
-					return m.switchView(viewPlanList)
-				case 's':
-					// Switch to session history view
-					return m.switchView(viewSessionHistory)
-				case 'e':
-					// Switch to export dialog view
-					return m.switchView(viewExport)
-				}
-			}
-		}
-
+		return m.handleKeyMsg(msg)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 	}
+
+	return m, nil
+}
+
+// handleKeyMsg handles keyboard input messages.
+func (m *StatsModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyCtrlC:
+		return m, tea.Quit
+	case tea.KeyEsc:
+		return m.goBack()
+	case tea.KeyEnter:
+		return m.handleEnterKey()
+	case tea.KeyUp:
+		return m.handleArrowKey(-1)
+	case tea.KeyDown:
+		return m.handleArrowKey(1)
+	case tea.KeyRunes:
+		if len(msg.Runes) > 0 {
+			return m.handleRuneKey(msg.Runes[0])
+		}
+	}
+
+	return m, nil
+}
+
+// handleEnterKey handles the Enter key based on current view.
+func (m *StatsModel) handleEnterKey() (tea.Model, tea.Cmd) {
+	if m.currentView == viewPlanList && len(m.allPlanStats) > 0 {
+		// Select plan and switch to detail view
+		m.selectedPlanID = m.allPlanStats[m.planListCursor].PlanID
+		return m.switchView(viewPlanDetail)
+	}
+	return m, nil
+}
+
+// handleRuneKey handles character key presses.
+func (m *StatsModel) handleRuneKey(r rune) (tea.Model, tea.Cmd) {
+	switch r {
+	case 'q':
+		return m, tea.Quit
+	case 'p':
+		return m.switchView(viewPlanList)
+	case 's':
+		return m.switchView(viewSessionHistory)
+	case 'e':
+		return m.switchView(viewExport)
+	case 'j':
+		return m.handleArrowKey(1)
+	case 'k':
+		return m.handleArrowKey(-1)
+	}
+
+	return m, nil
+}
+
+// handleArrowKey handles up/down navigation in list views.
+//
+//nolint:unparam // tea.Cmd return kept for consistency with Bubble Tea patterns
+func (m *StatsModel) handleArrowKey(direction int) (*StatsModel, tea.Cmd) {
+	// Handle plan list navigation
+	if m.currentView == viewPlanList && len(m.allPlanStats) > 0 {
+		m.planListCursor += direction
+		// Wrap around
+		if m.planListCursor < 0 {
+			m.planListCursor = len(m.allPlanStats) - 1
+		} else if m.planListCursor >= len(m.allPlanStats) {
+			m.planListCursor = 0
+		}
+	}
+	// Add other list views here in future phases
 
 	return m, nil
 }
@@ -175,14 +231,72 @@ func (m *StatsModel) renderOverview() string {
 	return content.String()
 }
 
-// renderPlanList renders the plan list view (stub for Phase 2.1).
+// renderPlanList renders the plan list view with navigation.
 func (m *StatsModel) renderPlanList() string {
+	var content strings.Builder
+
+	// Title
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("12")).
+		PaddingBottom(1)
+
+	content.WriteString(titleStyle.Render("📚 Learning Plans"))
+	content.WriteString("\n\n")
+
+	// If no plans, show empty state
+	if len(m.allPlanStats) == 0 {
+		emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+		content.WriteString(emptyStyle.Render("No plans found. Create a plan to get started!"))
+		content.WriteString("\n\n")
+		content.WriteString(m.renderPlanListHelp())
+		return content.String()
+	}
+
+	// Create table with headers
+	table := components.NewTable([]string{"Title", "Progress", "Hours", "Status"})
+
+	// Add rows for each plan
+	for i, planStat := range m.allPlanStats {
+		// Format values
+		title := planStat.PlanTitle
+		progress := fmt.Sprintf("%d%%", planStat.ProgressPercent())
+		hours := fmt.Sprintf("%.1f / %.1f", planStat.TotalHours, planStat.PlannedHours)
+		status := formatPlanStatus(planStat.Status)
+
+		// Highlight selected row
+		if i == m.planListCursor {
+			highlightStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("0")).
+				Background(lipgloss.Color("12")).
+				Bold(true)
+			title = highlightStyle.Render(title)
+			progress = highlightStyle.Render(progress)
+			hours = highlightStyle.Render(hours)
+			status = highlightStyle.Render(status)
+		}
+
+		table.AddRow([]string{title, progress, hours, status})
+	}
+
+	content.WriteString(table.View())
+	content.WriteString("\n\n")
+
+	// Footer info
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	content.WriteString(footerStyle.Render(fmt.Sprintf("Showing %d plans", len(m.allPlanStats))))
+	content.WriteString("\n\n")
+
+	// Help
+	content.WriteString(m.renderPlanListHelp())
+
+	return content.String()
+}
+
+// renderPlanListHelp renders help text for the plan list view.
+func (m *StatsModel) renderPlanListHelp() string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	return lipgloss.NewStyle().Padding(2).Render(
-		"📚 Plan List View\n\n" +
-			"Coming soon in Phase 2.1...\n\n" +
-			helpStyle.Render("[Esc] Back to Overview"),
-	)
+	return helpStyle.Render("[↑/k] Up  |  [↓/j] Down  |  [Enter] View Details  |  [Esc] Back")
 }
 
 // renderPlanDetail renders the plan detail view (stub for Phase 2.2).

@@ -290,9 +290,9 @@ func TestStatsModel_View_RendersPlanListStub(t *testing.T) {
 
 	view := m.View()
 
-	// Should render plan list stub
-	assert.Contains(t, view, "Plan List View")
-	assert.Contains(t, view, "Coming soon")
+	// Should render plan list view (now implemented!)
+	assert.Contains(t, view, "Learning Plans")
+	assert.Contains(t, view, "No plans found")
 	assert.Contains(t, view, "Esc")
 }
 
@@ -338,11 +338,184 @@ func TestStatsModel_View_SwitchingBetweenViews(t *testing.T) {
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	m := updatedModel.(*StatsModel)
 	view = m.View()
-	assert.Contains(t, view, "Plan List View")
+	assert.Contains(t, view, "Learning Plans")
 
 	// Go back to overview
 	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = updatedModel.(*StatsModel)
 	view = m.View()
 	assert.Contains(t, view, "Learning Statistics")
+}
+
+// Test Phase 2.1: Plan List View
+
+func TestStatsModel_SetAllPlanStats(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "plan1", PlanTitle: "Rust", Progress: 0.5},
+		{PlanID: "plan2", PlanTitle: "Go", Progress: 0.3},
+	}
+
+	model.SetAllPlanStats(planStats)
+
+	// Should set plan stats
+	assert.Equal(t, 2, len(model.allPlanStats))
+	assert.Equal(t, "plan1", model.allPlanStats[0].PlanID)
+	// Should reset cursor
+	assert.Equal(t, 0, model.planListCursor)
+}
+
+func TestStatsModel_PlanList_EmptyState(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to plan list without setting plans
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should show empty state
+	assert.Contains(t, view, "No plans found")
+	assert.Contains(t, view, "Learning Plans")
+}
+
+func TestStatsModel_PlanList_NavigateDown(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "plan1", PlanTitle: "Rust"},
+		{PlanID: "plan2", PlanTitle: "Go"},
+		{PlanID: "plan3", PlanTitle: "Python"},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.planListCursor)
+
+	// Navigate down with 'j'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.planListCursor)
+
+	// Navigate down with arrow key
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 2, m.planListCursor)
+}
+
+func TestStatsModel_PlanList_NavigateUp(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "plan1", PlanTitle: "Rust"},
+		{PlanID: "plan2", PlanTitle: "Go"},
+		{PlanID: "plan3", PlanTitle: "Python"},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Switch to plan list and move to middle
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	model.planListCursor = 2
+
+	// Navigate up with 'k'
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.planListCursor)
+
+	// Navigate up with arrow key
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.planListCursor)
+}
+
+func TestStatsModel_PlanList_WrapAround(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "plan1", PlanTitle: "Rust"},
+		{PlanID: "plan2", PlanTitle: "Go"},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Switch to plan list
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	// Navigate up from first item (should wrap to last)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.planListCursor)
+
+	// Navigate down from last item (should wrap to first)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.planListCursor)
+}
+
+func TestStatsModel_PlanList_SelectPlan(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "plan1", PlanTitle: "Rust"},
+		{PlanID: "plan2", PlanTitle: "Go"},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	// Move to second plan
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.planListCursor)
+
+	// Press Enter to select
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(*StatsModel)
+
+	// Should switch to plan detail view
+	assert.Equal(t, viewPlanDetail, m.currentView)
+	// Should set selected plan ID
+	assert.Equal(t, "plan2", m.selectedPlanID)
+}
+
+func TestStatsModel_PlanList_RenderWithPlans(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "plan1", PlanTitle: "Rust Async", Progress: 0.5, TotalHours: 10, PlannedHours: 20, Status: "in-progress"},
+		{PlanID: "plan2", PlanTitle: "Go Concurrency", Progress: 0.3, TotalHours: 6, PlannedHours: 20, Status: "in-progress"},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should contain plan titles
+	assert.Contains(t, view, "Rust Async")
+	assert.Contains(t, view, "Go Concurrency")
+	// Should show progress
+	assert.Contains(t, view, "50%")
+	assert.Contains(t, view, "30%")
+	// Should show hours
+	assert.Contains(t, view, "10.0")
+	assert.Contains(t, view, "6.0")
+	// Should show help
+	assert.Contains(t, view, "Enter")
+	assert.Contains(t, view, "Esc")
+	// Should show count
+	assert.Contains(t, view, "Showing 2 plans")
 }
