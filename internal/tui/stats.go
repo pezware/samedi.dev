@@ -36,6 +36,7 @@ type StatsModel struct {
 	currentView    viewState         // Current active view
 	viewHistory    []viewState       // Stack for back navigation
 	selectedPlanID string            // Plan ID for drill-down context
+	selectedPlan   *stats.PlanStats  // Detailed stats for selected plan
 	allPlanStats   []stats.PlanStats // All plan statistics for list view
 	planListCursor int               // Current cursor position in plan list (0-indexed)
 }
@@ -143,7 +144,9 @@ func (m *StatsModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *StatsModel) handleEnterKey() (tea.Model, tea.Cmd) {
 	if m.currentView == viewPlanList && len(m.allPlanStats) > 0 {
 		// Select plan and switch to detail view
-		m.selectedPlanID = m.allPlanStats[m.planListCursor].PlanID
+		selectedStat := m.allPlanStats[m.planListCursor]
+		m.selectedPlanID = selectedStat.PlanID
+		m.selectedPlan = &selectedStat
 		return m.switchView(viewPlanDetail)
 	}
 	return m, nil
@@ -157,6 +160,8 @@ func (m *StatsModel) handleRuneKey(r rune) (tea.Model, tea.Cmd) {
 	case 'p':
 		return m.switchView(viewPlanList)
 	case 's':
+		// If in plan detail view, switch to session history filtered by this plan
+		// Otherwise, switch to session history (all sessions)
 		return m.switchView(viewSessionHistory)
 	case 'e':
 		return m.switchView(viewExport)
@@ -299,14 +304,77 @@ func (m *StatsModel) renderPlanListHelp() string {
 	return helpStyle.Render("[↑/k] Up  |  [↓/j] Down  |  [Enter] View Details  |  [Esc] Back")
 }
 
-// renderPlanDetail renders the plan detail view (stub for Phase 2.2).
+// renderPlanDetail renders the plan detail view with comprehensive plan information.
 func (m *StatsModel) renderPlanDetail() string {
+	if m.selectedPlan == nil {
+		emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+		return lipgloss.NewStyle().Padding(2).Render(
+			emptyStyle.Render("No plan selected"),
+		)
+	}
+
+	var content strings.Builder
+
+	// Title with plan name
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("12")).
+		PaddingBottom(1)
+
+	content.WriteString(titleStyle.Render(fmt.Sprintf("📊 %s", m.selectedPlan.PlanTitle)))
+	content.WriteString("\n\n")
+
+	// Status badge
+	statusStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("14"))
+	content.WriteString(statusStyle.Render("Status: "))
+	content.WriteString(formatPlanStatus(m.selectedPlan.Status))
+	content.WriteString("\n\n")
+
+	// Progress section with visual progress bar
+	progressBar := components.NewProgressBar(m.selectedPlan.Progress, 40)
+	content.WriteString(m.renderSection("📈 Progress", []string{
+		progressBar.View(),
+		fmt.Sprintf("Completed: %d / %d chunks (%.0f%%)",
+			m.selectedPlan.CompletedChunks,
+			m.selectedPlan.TotalChunks,
+			m.selectedPlan.Progress*100),
+	}))
+
+	content.WriteString("\n")
+
+	// Time statistics
+	avgMinutes := 0.0
+	if m.selectedPlan.SessionCount > 0 {
+		avgMinutes = (m.selectedPlan.TotalHours * 60) / float64(m.selectedPlan.SessionCount)
+	}
+
+	content.WriteString(m.renderSection("⏱️  Time Investment", []string{
+		fmt.Sprintf("Total hours:      %.1f / %.1f hours", m.selectedPlan.TotalHours, m.selectedPlan.PlannedHours),
+		fmt.Sprintf("Sessions:         %d", m.selectedPlan.SessionCount),
+		fmt.Sprintf("Average session:  %.0f minutes", avgMinutes),
+	}))
+
+	// Last session info
+	if m.selectedPlan.LastSession != nil {
+		content.WriteString("\n")
+		content.WriteString(m.renderSection("📅 Last Session", []string{
+			m.selectedPlan.LastSession.Format("Monday, January 2, 2006 at 3:04 PM"),
+		}))
+	}
+
+	// Help text
+	content.WriteString("\n\n")
+	content.WriteString(m.renderPlanDetailHelp())
+
+	return content.String()
+}
+
+// renderPlanDetailHelp renders help text for the plan detail view.
+func (m *StatsModel) renderPlanDetailHelp() string {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	return lipgloss.NewStyle().Padding(2).Render(
-		"📊 Plan Details View\n\n" +
-			"Coming soon in Phase 2.2...\n\n" +
-			helpStyle.Render("[Esc] Back"),
-	)
+	return helpStyle.Render("[s] View Sessions  |  [Esc] Back to Plan List")
 }
 
 // renderSessionHistory renders the session history view (stub for Phase 3.1).

@@ -519,3 +519,176 @@ func TestStatsModel_PlanList_RenderWithPlans(t *testing.T) {
 	// Should show count
 	assert.Contains(t, view, "Showing 2 plans")
 }
+
+// Test Phase 2.2: Plan Detail View
+
+func TestStatsModel_PlanDetail_Selection(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	now := time.Now()
+	planStats := []stats.PlanStats{
+		{
+			PlanID:          "rust-async",
+			PlanTitle:       "Rust Async Programming",
+			Progress:        0.65,
+			TotalHours:      26.0,
+			PlannedHours:    40.0,
+			SessionCount:    12,
+			CompletedChunks: 13,
+			TotalChunks:     20,
+			Status:          "in-progress",
+			LastSession:     &now,
+		},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	// Press Enter to select plan
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(*StatsModel)
+
+	// Should be in plan detail view
+	assert.Equal(t, viewPlanDetail, m.currentView)
+	// Should have selected plan ID
+	assert.Equal(t, "rust-async", m.selectedPlanID)
+	// Should have selected plan stats
+	assert.NotNil(t, m.selectedPlan)
+	assert.Equal(t, "Rust Async Programming", m.selectedPlan.PlanTitle)
+}
+
+func TestStatsModel_PlanDetail_Render(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	now := time.Now()
+	planStats := []stats.PlanStats{
+		{
+			PlanID:          "rust-async",
+			PlanTitle:       "Rust Async Programming",
+			Progress:        0.65,
+			TotalHours:      26.0,
+			PlannedHours:    40.0,
+			SessionCount:    12,
+			CompletedChunks: 13,
+			TotalChunks:     20,
+			Status:          "in-progress",
+			LastSession:     &now,
+		},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Navigate to plan detail
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should show plan title
+	assert.Contains(t, view, "Rust Async Programming")
+	// Should show status
+	assert.Contains(t, view, "In Progress")
+	// Should show progress
+	assert.Contains(t, view, "65%")
+	assert.Contains(t, view, "13 / 20 chunks")
+	// Should show hours
+	assert.Contains(t, view, "26.0 / 40.0 hours")
+	// Should show session count
+	assert.Contains(t, view, "12")
+	// Should show help
+	assert.Contains(t, view, "View Sessions")
+	assert.Contains(t, view, "Esc")
+}
+
+func TestStatsModel_PlanDetail_EmptyState(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Manually set to plan detail view without selecting a plan
+	model.currentView = viewPlanDetail
+	model.selectedPlan = nil
+
+	view := model.View()
+
+	// Should show empty state
+	assert.Contains(t, view, "No plan selected")
+}
+
+func TestStatsModel_PlanDetail_NavigateToSessions(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "rust-async", PlanTitle: "Rust Async", Progress: 0.5},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Navigate to plan detail
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := updatedModel.(*StatsModel)
+
+	// Press 's' to view sessions
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updatedModel.(*StatsModel)
+
+	// Should switch to session history view
+	assert.Equal(t, viewSessionHistory, m.currentView)
+	// Should maintain selected plan ID for filtering
+	assert.Equal(t, "rust-async", m.selectedPlanID)
+}
+
+func TestStatsModel_PlanDetail_GoBack(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{PlanID: "rust-async", PlanTitle: "Rust Async", Progress: 0.5},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Navigate: overview -> plan list -> plan detail
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, viewPlanDetail, m.currentView)
+
+	// Press Esc to go back
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(*StatsModel)
+
+	// Should be back at plan list
+	assert.Equal(t, viewPlanList, m.currentView)
+}
+
+func TestStatsModel_PlanDetail_ProgressBar(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	planStats := []stats.PlanStats{
+		{
+			PlanID:          "test-plan",
+			PlanTitle:       "Test Plan",
+			Progress:        0.75,
+			CompletedChunks: 15,
+			TotalChunks:     20,
+		},
+	}
+	model.SetAllPlanStats(planStats)
+
+	// Navigate to plan detail
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should show progress bar (check for progress bar characters)
+	assert.Contains(t, view, "█") // Progress bar filled character
+	// Should show 75%
+	assert.Contains(t, view, "75%")
+}
