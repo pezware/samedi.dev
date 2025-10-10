@@ -167,3 +167,102 @@ func TestStatsModel_InitialSelectedPlanID(t *testing.T) {
 	// Should start with no selected plan
 	assert.Equal(t, "", model.selectedPlanID)
 }
+
+func TestStatsModel_SwitchView_ToPlanList(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Press 'p' to switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	// Should be in plan list view
+	assert.Equal(t, viewPlanList, m.currentView)
+	// Should have overview in history
+	assert.Equal(t, []viewState{viewOverview}, m.viewHistory)
+}
+
+func TestStatsModel_SwitchView_ToSessionHistory(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Press 's' to switch to session history
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := updatedModel.(*StatsModel)
+
+	// Should be in session history view
+	assert.Equal(t, viewSessionHistory, m.currentView)
+	assert.Equal(t, []viewState{viewOverview}, m.viewHistory)
+}
+
+func TestStatsModel_SwitchView_ToExport(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Press 'e' to switch to export
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	m := updatedModel.(*StatsModel)
+
+	// Should be in export view
+	assert.Equal(t, viewExport, m.currentView)
+	assert.Equal(t, []viewState{viewOverview}, m.viewHistory)
+}
+
+func TestStatsModel_GoBack_SingleLevel(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, viewPlanList, m.currentView)
+
+	// Press Esc to go back
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(*StatsModel)
+
+	// Should be back at overview
+	assert.Equal(t, viewOverview, m.currentView)
+	// History should be empty
+	assert.Empty(t, m.viewHistory)
+}
+
+func TestStatsModel_GoBack_MultiLevel(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	// Switch to session history
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, viewSessionHistory, m.currentView)
+	assert.Equal(t, []viewState{viewOverview, viewPlanList}, m.viewHistory)
+
+	// Go back once
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, viewPlanList, m.currentView)
+	assert.Equal(t, []viewState{viewOverview}, m.viewHistory)
+
+	// Go back again
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, viewOverview, m.currentView)
+	assert.Empty(t, m.viewHistory)
+}
+
+func TestStatsModel_GoBack_EmptyHistory(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Press Esc at overview (no history)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m := updatedModel.(*StatsModel)
+
+	// Should stay at overview
+	assert.Equal(t, viewOverview, m.currentView)
+	assert.Empty(t, m.viewHistory)
+}

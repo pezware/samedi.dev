@@ -62,6 +62,40 @@ func (m *StatsModel) Init() tea.Cmd {
 	return nil
 }
 
+// switchView transitions to a new view and updates history stack.
+// Data loading commands for specific views will be added in Phase 2+.
+//
+//nolint:unparam // tea.Cmd will be used when data loading is implemented
+func (m *StatsModel) switchView(newView viewState) (*StatsModel, tea.Cmd) {
+	// Push current view to history stack
+	m.viewHistory = append(m.viewHistory, m.currentView)
+
+	// Update current view
+	m.currentView = newView
+
+	return m, nil
+}
+
+// goBack returns to the previous view from history stack.
+//
+//nolint:unparam // tea.Cmd return kept for consistency with Bubble Tea patterns
+func (m *StatsModel) goBack() (*StatsModel, tea.Cmd) {
+	// If history is empty, stay at current view
+	if len(m.viewHistory) == 0 {
+		return m, nil
+	}
+
+	// Pop last view from history
+	lastIndex := len(m.viewHistory) - 1
+	previousView := m.viewHistory[lastIndex]
+	m.viewHistory = m.viewHistory[:lastIndex]
+
+	// Update current view
+	m.currentView = previousView
+
+	return m, nil
+}
+
 // Update handles messages and updates the model.
 func (m *StatsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -69,9 +103,24 @@ func (m *StatsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return m, tea.Quit
+		case tea.KeyEsc:
+			// Go back to previous view
+			return m.goBack()
 		case tea.KeyRunes:
-			if len(msg.Runes) > 0 && msg.Runes[0] == 'q' {
-				return m, tea.Quit
+			if len(msg.Runes) > 0 {
+				switch msg.Runes[0] {
+				case 'q':
+					return m, tea.Quit
+				case 'p':
+					// Switch to plan list view
+					return m.switchView(viewPlanList)
+				case 's':
+					// Switch to session history view
+					return m.switchView(viewSessionHistory)
+				case 'e':
+					// Switch to export dialog view
+					return m.switchView(viewExport)
+				}
 			}
 		}
 
