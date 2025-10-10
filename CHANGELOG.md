@@ -80,6 +80,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced `samedi start <plan-id> <chunk-id>` to show progress and session history
   - All smart inference updates properly tested with mock services
 - Dependency: `github.com/yuin/goldmark` v1.7.13 for markdown parsing
+- **Stage 6: TUI Enhancements** - Interactive stats dashboard with multi-view navigation
+  - Multi-view navigation with 5 interactive views (overview, plan-list, plan-detail, session-history, export-dialog)
+  - View state management with history stack for back navigation ([Esc] key)
+  - Plan list view with cursor navigation and drill-down capability
+    - Table display with progress bars for all plans
+    - Keyboard navigation (↑/↓/j/k) with wraparound
+    - Enter to drill into plan details
+    - Empty state handling with graceful messages
+  - Plan detail view showing comprehensive plan statistics
+    - Visual progress bar with percentage and chunk completion
+    - Time investment metrics (total, sessions, average session duration)
+    - Last session timestamp
+    - Navigation shortcuts: [s] for sessions, [Esc] to return
+  - Session history view with context-aware filtering
+    - List sessions with date, plan ID, duration, notes preview
+    - Automatic filtering by plan when accessed from plan detail view
+    - Pagination with centered window (max 20 sessions visible)
+    - Helper functions: filterSessionsByPlan(), paginateSessions(), formatSessionRow()
+    - Cursor highlighting and wraparound navigation
+  - Export dialog for quick report generation
+    - Two export types: Summary Report, Full Report
+    - Cursor navigation between options (↑/↓/j/k)
+    - Enter to select, Esc to cancel
+    - User guidance on shell redirection for file export
+    - Integration with CLI `samedi report` command
+  - Keyboard shortcuts: [p] plans, [s] sessions, [e] export, [q] quit, [Esc] back, [↑/↓/j/k] navigation
+  - Comprehensive documentation in `docs/08-stats-analytics.md` (lines 186-353)
+    - All 5 views documented with examples
+    - Navigation patterns and keyboard shortcuts reference
+    - Context-aware behavior documented
+  - Implementation: Single-file architecture in `internal/tui/stats.go` (830 lines)
+    - All views consolidated rather than split into separate files
+    - Shared state management (cursors, selected plan, view history stack)
+    - Follows "avoid premature abstractions" principle
+    - Benefits: Explicit state, simpler testing, better cohesion
+  - Tests: View switching, navigation, rendering for all views
+    - `internal/tui/stats_test.go` - Core view tests
+    - `internal/tui/stats_navigation_bug_test.go` - Edge case coverage
+    - Empty state handling verified
+  - All tests passing, `make check` succeeds
 
 ### Changed
 - Updated to Go 1.25.1 (from 1.21)

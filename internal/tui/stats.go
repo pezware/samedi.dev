@@ -291,11 +291,11 @@ func (m *StatsModel) renderOverview() string {
 		PaddingBottom(1)
 
 	if m.viewMode == "total" {
-		content.WriteString(titleStyle.Render("📊 Learning Statistics"))
+		content.WriteString(titleStyle.Render("Learning Statistics"))
 		content.WriteString("\n\n")
 		content.WriteString(m.renderTotalStats())
 	} else {
-		content.WriteString(titleStyle.Render(fmt.Sprintf("📊 Statistics: %s", m.planStats.PlanTitle)))
+		content.WriteString(titleStyle.Render(fmt.Sprintf("Statistics: %s", m.planStats.PlanTitle)))
 		content.WriteString("\n\n")
 		content.WriteString(m.renderPlanStats())
 	}
@@ -317,7 +317,7 @@ func (m *StatsModel) renderPlanList() string {
 		Foreground(lipgloss.Color("12")).
 		PaddingBottom(1)
 
-	content.WriteString(titleStyle.Render("📚 Learning Plans"))
+	content.WriteString(titleStyle.Render("Learning Plans"))
 	content.WriteString("\n\n")
 
 	// If no plans, show empty state
@@ -392,7 +392,7 @@ func (m *StatsModel) renderPlanDetail() string {
 		Foreground(lipgloss.Color("12")).
 		PaddingBottom(1)
 
-	content.WriteString(titleStyle.Render(fmt.Sprintf("📊 %s", m.selectedPlan.PlanTitle)))
+	content.WriteString(titleStyle.Render(m.selectedPlan.PlanTitle))
 	content.WriteString("\n\n")
 
 	// Status badge
@@ -405,7 +405,7 @@ func (m *StatsModel) renderPlanDetail() string {
 
 	// Progress section with visual progress bar
 	progressBar := components.NewProgressBar(m.selectedPlan.Progress, 40)
-	content.WriteString(m.renderSection("📈 Progress", []string{
+	content.WriteString(m.renderSection("Progress", []string{
 		progressBar.View(),
 		fmt.Sprintf("Completed: %d / %d chunks (%.0f%%)",
 			m.selectedPlan.CompletedChunks,
@@ -421,7 +421,7 @@ func (m *StatsModel) renderPlanDetail() string {
 		avgMinutes = (m.selectedPlan.TotalHours * 60) / float64(m.selectedPlan.SessionCount)
 	}
 
-	content.WriteString(m.renderSection("⏱️  Time Investment", []string{
+	content.WriteString(m.renderSection("Time Investment", []string{
 		fmt.Sprintf("Total hours:      %.1f / %.1f hours", m.selectedPlan.TotalHours, m.selectedPlan.PlannedHours),
 		fmt.Sprintf("Sessions:         %d", m.selectedPlan.SessionCount),
 		fmt.Sprintf("Average session:  %.0f minutes", avgMinutes),
@@ -430,7 +430,7 @@ func (m *StatsModel) renderPlanDetail() string {
 	// Last session info
 	if m.selectedPlan.LastSession != nil {
 		content.WriteString("\n")
-		content.WriteString(m.renderSection("📅 Last Session", []string{
+		content.WriteString(m.renderSection("Last Session", []string{
 			m.selectedPlan.LastSession.Format("Monday, January 2, 2006 at 3:04 PM"),
 		}))
 	}
@@ -489,9 +489,9 @@ func (m *StatsModel) renderSessionHistory() string {
 // getSessionHistoryTitle returns the title for session history view with optional plan filter.
 func (m *StatsModel) getSessionHistoryTitle() string {
 	if m.selectedPlanID != "" && m.selectedPlan != nil {
-		return fmt.Sprintf("📅 Session History: %s", m.selectedPlan.PlanTitle)
+		return fmt.Sprintf("Session History: %s", m.selectedPlan.PlanTitle)
 	}
-	return "📅 Session History"
+	return "Session History"
 }
 
 // filterSessionsByPlan filters sessions by selected plan if applicable.
@@ -626,7 +626,7 @@ func (m *StatsModel) renderExportDialog() string {
 		Foreground(lipgloss.Color("12")).
 		PaddingBottom(1)
 
-	content.WriteString(titleStyle.Render("📤 Export Learning Report"))
+	content.WriteString(titleStyle.Render("Export Learning Report"))
 	content.WriteString("\n\n")
 
 	// Info text
@@ -699,7 +699,7 @@ func (m *StatsModel) renderTotalStats() string {
 	var result strings.Builder
 
 	// Learning time section
-	result.WriteString(m.renderSection("⏱️  Learning Time", []string{
+	result.WriteString(m.renderSection("Learning Time", []string{
 		fmt.Sprintf("Total hours:      %.1f hours", m.totalStats.TotalHours),
 		fmt.Sprintf("Total sessions:   %d", m.totalStats.TotalSessions),
 		fmt.Sprintf("Average session:  %.0f minutes", m.totalStats.AverageSession),
@@ -708,7 +708,7 @@ func (m *StatsModel) renderTotalStats() string {
 	result.WriteString("\n")
 
 	// Streaks section
-	result.WriteString(m.renderSection("🔥 Learning Streaks", []string{
+	result.WriteString(m.renderSection("Learning Streaks", []string{
 		fmt.Sprintf("Current streak:   %d days", m.totalStats.CurrentStreak),
 		fmt.Sprintf("Longest streak:   %d days", m.totalStats.LongestStreak),
 	}))
@@ -716,7 +716,7 @@ func (m *StatsModel) renderTotalStats() string {
 	result.WriteString("\n")
 
 	// Plans section
-	result.WriteString(m.renderSection("📚 Learning Plans", []string{
+	result.WriteString(m.renderSection("Learning Plans", []string{
 		fmt.Sprintf("Active plans:     %d", m.totalStats.ActivePlans),
 		fmt.Sprintf("Completed plans:  %d", m.totalStats.CompletedPlans),
 		fmt.Sprintf("Total plans:      %d", m.totalStats.ActivePlans+m.totalStats.CompletedPlans),
@@ -725,7 +725,7 @@ func (m *StatsModel) renderTotalStats() string {
 	// Last session
 	if m.totalStats.LastSessionDate != nil {
 		result.WriteString("\n")
-		result.WriteString(m.renderSection("📅 Last Session", []string{
+		result.WriteString(m.renderSection("Last Session", []string{
 			m.totalStats.LastSessionDate.Format("Monday, January 2, 2006 at 3:04 PM"),
 		}))
 	}
@@ -743,7 +743,7 @@ func (m *StatsModel) renderPlanStats() string {
 
 	// Progress section with visual progress bar
 	progressBar := components.NewProgressBar(m.planStats.Progress, 30)
-	result.WriteString(m.renderSection("📈 Progress", []string{
+	result.WriteString(m.renderSection("Progress", []string{
 		progressBar.View(),
 		fmt.Sprintf("Completed chunks: %d / %d", m.planStats.CompletedChunks, m.planStats.TotalChunks),
 	}))
@@ -756,7 +756,7 @@ func (m *StatsModel) renderPlanStats() string {
 		avgMinutes = (m.planStats.TotalHours * 60) / float64(m.planStats.SessionCount)
 	}
 
-	result.WriteString(m.renderSection("⏱️  Time", []string{
+	result.WriteString(m.renderSection("Time", []string{
 		fmt.Sprintf("Total hours:      %.1f / %.1f hours", m.planStats.TotalHours, m.planStats.PlannedHours),
 		fmt.Sprintf("Sessions:         %d", m.planStats.SessionCount),
 		fmt.Sprintf("Average session:  %.0f minutes", avgMinutes),
@@ -766,14 +766,14 @@ func (m *StatsModel) renderPlanStats() string {
 
 	// Status section
 	statusStr := formatPlanStatus(m.planStats.Status)
-	result.WriteString(m.renderSection("📊 Status", []string{
+	result.WriteString(m.renderSection("Status", []string{
 		statusStr,
 	}))
 
 	// Last session
 	if m.planStats.LastSession != nil {
 		result.WriteString("\n")
-		result.WriteString(m.renderSection("📅 Last Session", []string{
+		result.WriteString(m.renderSection("Last Session", []string{
 			m.planStats.LastSession.Format("Monday, January 2, 2006 at 3:04 PM"),
 		}))
 	}
@@ -812,17 +812,17 @@ func (m *StatsModel) renderHelp() string {
 	return helpStyle.Render(helpText)
 }
 
-// formatPlanStatus formats a status string with emoji.
+// formatPlanStatus formats a status string with text indicators.
 func formatPlanStatus(status string) string {
 	switch status {
 	case "not-started":
-		return "⚪ Not Started"
+		return "[ ] Not Started"
 	case "in-progress":
-		return "🟡 In Progress"
+		return "[→] In Progress"
 	case "completed":
-		return "🟢 Completed"
+		return "[✓] Completed"
 	case "archived":
-		return "📦 Archived"
+		return "[*] Archived"
 	default:
 		return status
 	}
