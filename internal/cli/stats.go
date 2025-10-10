@@ -136,7 +136,7 @@ func displayTotalStats(ctx context.Context, service *stats.Service, timeRange st
 	}
 
 	if tuiMode {
-		return launchTUI(totalStats, nil)
+		return launchTUI(ctx, service, timeRange, totalStats, nil)
 	}
 
 	// Print total stats
@@ -185,7 +185,7 @@ func displayPlanStats(ctx context.Context, service *stats.Service, planID string
 	}
 
 	if tuiMode {
-		return launchTUI(nil, planStats)
+		return launchTUI(ctx, service, timeRange, nil, planStats)
 	}
 
 	// Print plan stats
@@ -444,8 +444,41 @@ func (a *statsSessionServiceAdapter) ListAll(ctx context.Context) ([]*session.Se
 }
 
 // launchTUI starts the Bubble Tea program with the stats model.
-func launchTUI(totalStats *stats.TotalStats, planStats *stats.PlanStats) error {
+func launchTUI(ctx context.Context, service *stats.Service, timeRange stats.TimeRange, totalStats *stats.TotalStats, planStats *stats.PlanStats) error {
 	model := tui.NewStatsModel(totalStats, planStats)
+
+	// Fetch all plan stats for the plan list view
+	allPlanStatsMap, err := service.GetAllPlanStats(ctx, timeRange)
+	if err != nil {
+		return fmt.Errorf("failed to get all plan stats: %w", err)
+	}
+
+	// Convert map to slice for TUI model
+	allPlanStats := make([]stats.PlanStats, 0, len(allPlanStatsMap))
+	for _, ps := range allPlanStatsMap {
+		allPlanStats = append(allPlanStats, ps)
+	}
+
+	// Set plan stats on model
+	model.SetAllPlanStats(allPlanStats)
+
+	// Fetch all sessions for session history view
+	sessionRepo, err := getSessionRepo()
+	if err != nil {
+		return fmt.Errorf("failed to initialize session repository: %w", err)
+	}
+
+	sessionAdapter := &statsSessionServiceAdapter{
+		repo: sessionRepo,
+	}
+	allSessions, err := sessionAdapter.ListAll(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get sessions: %w", err)
+	}
+
+	// Set sessions on model
+	model.SetSessions(allSessions)
+
 	p := tea.NewProgram(model)
 
 	if _, err := p.Run(); err != nil {
@@ -453,4 +486,23 @@ func launchTUI(totalStats *stats.TotalStats, planStats *stats.PlanStats) error {
 	}
 
 	return nil
+}
+
+// getSessionRepo creates a session repository for accessing session data.
+// This is a helper to avoid circular dependencies and reuse the database connection.
+func getSessionRepo() (session.Repository, error) {
+	// Get default paths
+	paths, err := storage.DefaultPaths()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get paths: %w", err)
+	}
+
+	// Initialize SQLite database
+	db, err := storage.NewSQLiteDB(paths.DatabasePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
+	// Create session repository
+	return session.NewSQLiteRepository(db), nil
 }
