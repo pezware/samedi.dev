@@ -4,10 +4,12 @@
 package tui
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/stats"
 	"github.com/stretchr/testify/assert"
 )
@@ -699,4 +701,302 @@ func TestStatsModel_PlanDetail_ProgressBar(t *testing.T) {
 	assert.Contains(t, view, "█") // Progress bar filled character
 	// Should show 75%
 	assert.Contains(t, view, "75%")
+}
+
+// Test comprehensive session history and export features (addressing code review gaps)
+
+func TestStatsModel_SessionHistory_WithData(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Create test sessions
+	now := time.Now()
+	sessions := []*session.Session{
+		{
+			ID:        "sess1",
+			PlanID:    "plan1",
+			StartTime: now.Add(-2 * time.Hour),
+			EndTime:   &[]time.Time{now.Add(-1 * time.Hour)}[0],
+			Duration:  60,
+			Notes:     "First session",
+		},
+		{
+			ID:        "sess2",
+			PlanID:    "plan2",
+			StartTime: now.Add(-4 * time.Hour),
+			EndTime:   &[]time.Time{now.Add(-3 * time.Hour)}[0],
+			Duration:  60,
+			Notes:     "Second session",
+		},
+	}
+	model.SetSessions(sessions)
+
+	// Switch to session history
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should show session data
+	assert.Contains(t, view, "Session History")
+	assert.Contains(t, view, "plan1")
+	assert.Contains(t, view, "plan2")
+	assert.Contains(t, view, "First session")
+	assert.Contains(t, view, "Showing 2 sessions")
+}
+
+func TestStatsModel_SessionHistory_FilteredByPlan(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Create test sessions for multiple plans
+	now := time.Now()
+	sessions := []*session.Session{
+		{ID: "sess1", PlanID: "rust-async", StartTime: now.Add(-1 * time.Hour), Duration: 60, Notes: "Rust session 1"},
+		{ID: "sess2", PlanID: "rust-async", StartTime: now.Add(-2 * time.Hour), Duration: 60, Notes: "Rust session 2"},
+		{ID: "sess3", PlanID: "go-concurrency", StartTime: now.Add(-3 * time.Hour), Duration: 60, Notes: "Go session 1"},
+	}
+	model.SetSessions(sessions)
+
+	// Set selected plan
+	model.selectedPlanID = "rust-async"
+	model.selectedPlan = &stats.PlanStats{PlanID: "rust-async", PlanTitle: "Rust Async"}
+
+	// Switch to session history
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should show filtered sessions
+	assert.Contains(t, view, "Session History: Rust Async")
+	assert.Contains(t, view, "Rust session 1")
+	assert.Contains(t, view, "Rust session 2")
+	// Should not show Go sessions
+	assert.NotContains(t, view, "Go session 1")
+	// Should show filtered count
+	assert.Contains(t, view, "Showing 2 sessions")
+}
+
+func TestStatsModel_SessionHistory_Pagination(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Create 25 sessions (more than maxDisplay of 20)
+	now := time.Now()
+	sessions := make([]*session.Session, 25)
+	for i := 0; i < 25; i++ {
+		sessions[i] = &session.Session{
+			ID:        fmt.Sprintf("sess%d", i),
+			PlanID:    "test-plan",
+			StartTime: now.Add(-time.Duration(i) * time.Hour),
+			Duration:  60,
+			Notes:     fmt.Sprintf("Session %d", i),
+		}
+	}
+	model.SetSessions(sessions)
+
+	// Switch to session history
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	// Should only display 20 sessions (pagination)
+	// Get the filtered and paginated sessions
+	filteredSessions := model.filterSessionsByPlan()
+	displaySessions, _ := model.paginateSessions(filteredSessions, 20)
+
+	// Should paginate to 20
+	assert.Equal(t, 20, len(displaySessions))
+
+	// Total count should still show all 25
+	view := model.View()
+	assert.Contains(t, view, "Showing 25 sessions")
+}
+
+func TestStatsModel_SessionHistory_CursorNavigation(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Create test sessions
+	now := time.Now()
+	sessions := []*session.Session{
+		{ID: "sess1", PlanID: "plan1", StartTime: now, Duration: 60},
+		{ID: "sess2", PlanID: "plan1", StartTime: now.Add(-1 * time.Hour), Duration: 60},
+		{ID: "sess3", PlanID: "plan1", StartTime: now.Add(-2 * time.Hour), Duration: 60},
+	}
+	model.SetSessions(sessions)
+
+	// Switch to session history
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.sessionHistoryCursor)
+
+	// Navigate down with 'j'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.sessionHistoryCursor)
+
+	// Navigate down with arrow key
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 2, m.sessionHistoryCursor)
+
+	// Navigate up with 'k'
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.sessionHistoryCursor)
+}
+
+func TestStatsModel_SessionHistory_CursorWrapAround(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Create test sessions
+	now := time.Now()
+	sessions := []*session.Session{
+		{ID: "sess1", PlanID: "plan1", StartTime: now, Duration: 60},
+		{ID: "sess2", PlanID: "plan1", StartTime: now.Add(-1 * time.Hour), Duration: 60},
+	}
+	model.SetSessions(sessions)
+
+	// Switch to session history
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	// Navigate up from first (should wrap to last)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.sessionHistoryCursor)
+
+	// Navigate down from last (should wrap to first)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.sessionHistoryCursor)
+}
+
+func TestStatsModel_SessionHistory_CursorResetOnViewSwitch(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Create test sessions
+	now := time.Now()
+	sessions := []*session.Session{
+		{ID: "sess1", PlanID: "plan1", StartTime: now, Duration: 60},
+		{ID: "sess2", PlanID: "plan1", StartTime: now, Duration: 60},
+		{ID: "sess3", PlanID: "plan1", StartTime: now, Duration: 60},
+	}
+	model.SetSessions(sessions)
+
+	// Switch to session history and navigate
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.Equal(t, 2, model.sessionHistoryCursor)
+
+	// Go back and return to session history
+	model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := updatedModel.(*StatsModel)
+
+	// Cursor should be reset
+	assert.Equal(t, 0, m.sessionHistoryCursor)
+}
+
+func TestStatsModel_SessionHistory_FilteredCursorBounds(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Create sessions for multiple plans
+	now := time.Now()
+	sessions := []*session.Session{
+		{ID: "sess1", PlanID: "plan1", StartTime: now, Duration: 60},
+		{ID: "sess2", PlanID: "plan1", StartTime: now, Duration: 60},
+		{ID: "sess3", PlanID: "plan2", StartTime: now, Duration: 60},
+		{ID: "sess4", PlanID: "plan2", StartTime: now, Duration: 60},
+		{ID: "sess5", PlanID: "plan2", StartTime: now, Duration: 60},
+	}
+	model.SetSessions(sessions)
+
+	// Set filter to plan1 (2 sessions)
+	model.selectedPlanID = "plan1"
+	model.selectedPlan = &stats.PlanStats{PlanID: "plan1", PlanTitle: "Plan 1"}
+
+	// Switch to session history
+	model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+
+	// Navigate to last filtered session
+	model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.Equal(t, 1, model.sessionHistoryCursor)
+
+	// Try to go beyond filtered list (should wrap to first)
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.sessionHistoryCursor)
+
+	// Navigate up (should wrap to last filtered session, which is index 1)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.sessionHistoryCursor)
+}
+
+func TestStatsModel_Export_NavigateOptions(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to export
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.exportMenuCursor)
+
+	// Navigate down
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.exportMenuCursor)
+
+	// Navigate down again (should wrap to first)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 0, m.exportMenuCursor)
+
+	// Navigate up (should wrap to last)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.exportMenuCursor)
+}
+
+func TestStatsModel_Export_SelectOption(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to export
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	m := updatedModel.(*StatsModel)
+
+	// Press Enter to select first option (summary)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, "summary", m.exportType)
+
+	// Should go back to previous view
+	assert.Equal(t, viewOverview, m.currentView)
+}
+
+func TestStatsModel_Export_SelectFullReport(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to export
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	m := updatedModel.(*StatsModel)
+
+	// Navigate to second option (full report)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, 1, m.exportMenuCursor)
+
+	// Press Enter to select
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updatedModel.(*StatsModel)
+	assert.Equal(t, "full", m.exportType)
+
+	// Should go back to previous view
+	assert.Equal(t, viewOverview, m.currentView)
 }

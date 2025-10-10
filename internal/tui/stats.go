@@ -97,6 +97,11 @@ func (m *StatsModel) switchView(newView viewState) (*StatsModel, tea.Cmd) {
 	// Update current view
 	m.currentView = newView
 
+	// Reset cursors when switching to certain views to handle filter changes
+	if newView == viewSessionHistory {
+		m.sessionHistoryCursor = 0
+	}
+
 	return m, nil
 }
 
@@ -231,13 +236,17 @@ func (m *StatsModel) handleArrowKey(direction int) (*StatsModel, tea.Cmd) {
 	}
 
 	// Handle session history navigation
-	if m.currentView == viewSessionHistory && len(m.sessions) > 0 {
-		m.sessionHistoryCursor += direction
-		// Wrap around
-		if m.sessionHistoryCursor < 0 {
-			m.sessionHistoryCursor = len(m.sessions) - 1
-		} else if m.sessionHistoryCursor >= len(m.sessions) {
-			m.sessionHistoryCursor = 0
+	if m.currentView == viewSessionHistory {
+		// Get filtered sessions to navigate within the correct bounds
+		filteredSessions := m.filterSessionsByPlan()
+		if len(filteredSessions) > 0 {
+			m.sessionHistoryCursor += direction
+			// Wrap around using filtered list length
+			if m.sessionHistoryCursor < 0 {
+				m.sessionHistoryCursor = len(filteredSessions) - 1
+			} else if m.sessionHistoryCursor >= len(filteredSessions) {
+				m.sessionHistoryCursor = 0
+			}
 		}
 	}
 
@@ -515,21 +524,23 @@ func (m *StatsModel) buildSessionTable(filteredSessions []*session.Session) stri
 	table := components.NewTable([]string{"Date", "Plan", "Duration", "Notes"})
 
 	// Paginate sessions (max 20 visible)
-	displaySessions := m.paginateSessions(filteredSessions, 20)
+	displaySessions, startOffset := m.paginateSessions(filteredSessions, 20)
 
-	// Add rows
+	// Add rows with absolute index for highlight comparison
 	for i, sess := range displaySessions {
-		row := m.formatSessionRow(sess, i == m.sessionHistoryCursor)
+		absoluteIndex := startOffset + i
+		row := m.formatSessionRow(sess, absoluteIndex == m.sessionHistoryCursor)
 		table.AddRow(row)
 	}
 
 	return table.View()
 }
 
-// paginateSessions returns a slice of sessions to display based on cursor position.
-func (m *StatsModel) paginateSessions(sessions []*session.Session, maxDisplay int) []*session.Session {
+// paginateSessions returns a slice of sessions to display based on cursor position
+// and the starting offset in the original list.
+func (m *StatsModel) paginateSessions(sessions []*session.Session, maxDisplay int) ([]*session.Session, int) {
 	if len(sessions) <= maxDisplay {
-		return sessions
+		return sessions, 0
 	}
 
 	// Center window around cursor
@@ -547,7 +558,7 @@ func (m *StatsModel) paginateSessions(sessions []*session.Session, maxDisplay in
 		}
 	}
 
-	return sessions[start:end]
+	return sessions[start:end], start
 }
 
 // formatSessionRow formats a single session as a table row.
