@@ -132,8 +132,24 @@ func (m *StatsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the TUI.
+// View renders the TUI based on current view state.
 func (m *StatsModel) View() string {
+	switch m.currentView {
+	case viewPlanList:
+		return m.renderPlanList()
+	case viewPlanDetail:
+		return m.renderPlanDetail()
+	case viewSessionHistory:
+		return m.renderSessionHistory()
+	case viewExport:
+		return m.renderExportDialog()
+	default: // viewOverview
+		return m.renderOverview()
+	}
+}
+
+// renderOverview renders the overview/stats view.
+func (m *StatsModel) renderOverview() string {
 	var content strings.Builder
 
 	// Title
@@ -157,6 +173,46 @@ func (m *StatsModel) View() string {
 	content.WriteString(m.renderHelp())
 
 	return content.String()
+}
+
+// renderPlanList renders the plan list view (stub for Phase 2.1).
+func (m *StatsModel) renderPlanList() string {
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	return lipgloss.NewStyle().Padding(2).Render(
+		"📚 Plan List View\n\n" +
+			"Coming soon in Phase 2.1...\n\n" +
+			helpStyle.Render("[Esc] Back to Overview"),
+	)
+}
+
+// renderPlanDetail renders the plan detail view (stub for Phase 2.2).
+func (m *StatsModel) renderPlanDetail() string {
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	return lipgloss.NewStyle().Padding(2).Render(
+		"📊 Plan Details View\n\n" +
+			"Coming soon in Phase 2.2...\n\n" +
+			helpStyle.Render("[Esc] Back"),
+	)
+}
+
+// renderSessionHistory renders the session history view (stub for Phase 3.1).
+func (m *StatsModel) renderSessionHistory() string {
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	return lipgloss.NewStyle().Padding(2).Render(
+		"📅 Session History View\n\n" +
+			"Coming soon in Phase 3.1...\n\n" +
+			helpStyle.Render("[Esc] Back to Overview"),
+	)
+}
+
+// renderExportDialog renders the export dialog view (stub for Phase 4.1).
+func (m *StatsModel) renderExportDialog() string {
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	return lipgloss.NewStyle().Padding(2).Render(
+		"📤 Export Dialog\n\n" +
+			"Coming soon in Phase 4.1...\n\n" +
+			helpStyle.Render("[Esc] Cancel and go back"),
+	)
 }
 
 // renderTotalStats renders total statistics view.

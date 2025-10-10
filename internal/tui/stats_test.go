@@ -266,3 +266,83 @@ func TestStatsModel_GoBack_EmptyHistory(t *testing.T) {
 	assert.Equal(t, viewOverview, m.currentView)
 	assert.Empty(t, m.viewHistory)
 }
+
+// Test view rendering and routing
+
+func TestStatsModel_View_RendersOverviewByDefault(t *testing.T) {
+	totalStats := &stats.TotalStats{TotalHours: 42.5}
+	model := NewStatsModel(totalStats, nil)
+
+	view := model.View()
+
+	// Should render overview with stats
+	assert.Contains(t, view, "Learning Statistics")
+	assert.Contains(t, view, "42.5")
+}
+
+func TestStatsModel_View_RendersPlanListStub(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should render plan list stub
+	assert.Contains(t, view, "Plan List View")
+	assert.Contains(t, view, "Coming soon")
+	assert.Contains(t, view, "Esc")
+}
+
+func TestStatsModel_View_RendersSessionHistoryStub(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to session history
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should render session history stub
+	assert.Contains(t, view, "Session History View")
+	assert.Contains(t, view, "Coming soon")
+}
+
+func TestStatsModel_View_RendersExportStub(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := NewStatsModel(totalStats, nil)
+
+	// Switch to export
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	m := updatedModel.(*StatsModel)
+
+	view := m.View()
+
+	// Should render export dialog stub
+	assert.Contains(t, view, "Export Dialog")
+	assert.Contains(t, view, "Coming soon")
+}
+
+func TestStatsModel_View_SwitchingBetweenViews(t *testing.T) {
+	totalStats := &stats.TotalStats{TotalHours: 10}
+	model := NewStatsModel(totalStats, nil)
+
+	// Start at overview
+	view := model.View()
+	assert.Contains(t, view, "Learning Statistics")
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+	view = m.View()
+	assert.Contains(t, view, "Plan List View")
+
+	// Go back to overview
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updatedModel.(*StatsModel)
+	view = m.View()
+	assert.Contains(t, view, "Learning Statistics")
+}
