@@ -4,15 +4,110 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/pezware/samedi.dev/internal/plan"
 	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/stats"
+	"github.com/pezware/samedi.dev/internal/storage"
+	"github.com/pezware/samedi.dev/internal/tui/app"
 	"github.com/stretchr/testify/assert"
 )
+
+func newTestStatsModuleWithTotals(total *stats.TotalStats) *StatsModel {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+	if total == nil {
+		total = &stats.TotalStats{}
+	}
+	module.totalStats = total
+	module.dataLoaded = true
+	module.loading = false
+	return module
+}
+
+func newTestStatsModule() *StatsModel {
+	return newTestStatsModuleWithTotals(nil)
+}
+
+type stubPlanService struct {
+	plans     map[string]*plan.Plan
+	records   []*storage.PlanRecord
+	listCalls int
+	getCalls  int
+}
+
+func newStubPlanService() *stubPlanService {
+	now := time.Now()
+	p := &plan.Plan{
+		ID:         "plan-1",
+		Title:      "Sample Plan",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		TotalHours: 10,
+		Status:     plan.StatusInProgress,
+		Chunks:     []plan.Chunk{},
+	}
+	return &stubPlanService{
+		plans: map[string]*plan.Plan{
+			p.ID: p,
+		},
+		records: []*storage.PlanRecord{
+			{
+				ID:         p.ID,
+				Title:      p.Title,
+				Status:     string(p.Status),
+				TotalHours: p.TotalHours,
+			},
+		},
+	}
+}
+
+func (s *stubPlanService) List(_ context.Context, _ *storage.PlanFilter) ([]*storage.PlanRecord, error) {
+	s.listCalls++
+	return s.records, nil
+}
+
+func (s *stubPlanService) Get(_ context.Context, id string) (*plan.Plan, error) {
+	s.getCalls++
+	if plan, ok := s.plans[id]; ok {
+		cp := *plan
+		return &cp, nil
+	}
+	return nil, fmt.Errorf("plan not found: %s", id)
+}
+
+type stubSessionService struct {
+	listAllCalls int
+}
+
+func newStubSessionService() *stubSessionService {
+	return &stubSessionService{}
+}
+
+func (s *stubSessionService) List(_ context.Context, _ string, _ int) ([]*session.Session, error) {
+	return []*session.Session{}, nil
+}
+
+func (s *stubSessionService) ListAll(_ context.Context) ([]*session.Session, error) {
+	s.listAllCalls++
+	return []*session.Session{}, nil
+}
+
+func drainStatsCommands(model *StatsModel, cmd tea.Cmd) *StatsModel {
+	for cmd != nil {
+		msg := cmd()
+		var nextCmd tea.Cmd
+		var updated tea.Model
+		updated, nextCmd = model.Update(msg)
+		model = updated.(*StatsModel)
+		cmd = nextCmd
+	}
+	return model
+}
 
 func TestStatsModel_Init(t *testing.T) {
 	totalStats := &stats.TotalStats{
@@ -24,7 +119,7 @@ func TestStatsModel_Init(t *testing.T) {
 		CompletedPlans: 2,
 	}
 
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Init should return nil command
 	cmd := model.Init()
@@ -32,8 +127,7 @@ func TestStatsModel_Init(t *testing.T) {
 }
 
 func TestStatsModel_Update_Quit(t *testing.T) {
-	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModule()
 
 	// Press 'q' to quit
 	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
@@ -44,8 +138,7 @@ func TestStatsModel_Update_Quit(t *testing.T) {
 }
 
 func TestStatsModel_Update_CtrlC(t *testing.T) {
-	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModule()
 
 	// Press Ctrl+C to quit
 	updatedModel, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
@@ -68,7 +161,7 @@ func TestStatsModel_View_TotalStats(t *testing.T) {
 		LastSessionDate: &now,
 	}
 
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 	view := model.View()
 
 	// Should contain key statistics
@@ -95,7 +188,9 @@ func TestStatsModel_View_PlanStats(t *testing.T) {
 		LastSession:     &now,
 	}
 
-	model := NewStatsModel(nil, planStats)
+	model := newTestStatsModule()
+	model.planStats = planStats
+	model.viewMode = "plan"
 	view := model.View()
 
 	// Should contain plan-specific statistics
@@ -109,8 +204,7 @@ func TestStatsModel_View_PlanStats(t *testing.T) {
 }
 
 func TestStatsModel_View_Help(t *testing.T) {
-	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModule()
 	view := model.View()
 
 	// Should contain help text
@@ -120,7 +214,7 @@ func TestStatsModel_View_Help(t *testing.T) {
 
 func TestStatsModel_ViewMode_Total(t *testing.T) {
 	totalStats := &stats.TotalStats{TotalHours: 100}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Should default to total stats view
 	assert.Equal(t, "total", model.viewMode)
@@ -134,7 +228,9 @@ func TestStatsModel_ViewMode_Plan(t *testing.T) {
 		PlanTitle:  "Test Plan",
 		TotalHours: 25.0,
 	}
-	model := NewStatsModel(nil, planStats)
+	model := newTestStatsModule()
+	model.planStats = planStats
+	model.viewMode = "plan"
 
 	// Should use plan stats view
 	assert.Equal(t, "plan", model.viewMode)
@@ -148,7 +244,7 @@ func TestStatsModel_ViewMode_Plan(t *testing.T) {
 
 func TestStatsModel_InitialViewState(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Should start at overview
 	assert.Equal(t, viewOverview, model.currentView)
@@ -156,7 +252,7 @@ func TestStatsModel_InitialViewState(t *testing.T) {
 
 func TestStatsModel_InitialViewHistory(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Should start with empty history
 	assert.Empty(t, model.viewHistory)
@@ -164,7 +260,7 @@ func TestStatsModel_InitialViewHistory(t *testing.T) {
 
 func TestStatsModel_InitialSelectedPlanID(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Should start with no selected plan
 	assert.Equal(t, "", model.selectedPlanID)
@@ -172,7 +268,7 @@ func TestStatsModel_InitialSelectedPlanID(t *testing.T) {
 
 func TestStatsModel_SwitchView_ToPlanList(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Press 'p' to switch to plan list
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -186,7 +282,7 @@ func TestStatsModel_SwitchView_ToPlanList(t *testing.T) {
 
 func TestStatsModel_SwitchView_ToSessionHistory(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Press 's' to switch to session history
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
@@ -199,7 +295,7 @@ func TestStatsModel_SwitchView_ToSessionHistory(t *testing.T) {
 
 func TestStatsModel_SwitchView_ToExport(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Press 'e' to switch to export
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
@@ -212,7 +308,7 @@ func TestStatsModel_SwitchView_ToExport(t *testing.T) {
 
 func TestStatsModel_GoBack_SingleLevel(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to plan list
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -231,7 +327,7 @@ func TestStatsModel_GoBack_SingleLevel(t *testing.T) {
 
 func TestStatsModel_GoBack_MultiLevel(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to plan list
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -258,7 +354,7 @@ func TestStatsModel_GoBack_MultiLevel(t *testing.T) {
 
 func TestStatsModel_GoBack_EmptyHistory(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Press Esc at overview (no history)
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -273,7 +369,7 @@ func TestStatsModel_GoBack_EmptyHistory(t *testing.T) {
 
 func TestStatsModel_View_RendersOverviewByDefault(t *testing.T) {
 	totalStats := &stats.TotalStats{TotalHours: 42.5}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	view := model.View()
 
@@ -284,7 +380,7 @@ func TestStatsModel_View_RendersOverviewByDefault(t *testing.T) {
 
 func TestStatsModel_View_RendersPlanListStub(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to plan list
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -300,7 +396,7 @@ func TestStatsModel_View_RendersPlanListStub(t *testing.T) {
 
 func TestStatsModel_View_RendersSessionHistoryStub(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to session history
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
@@ -318,7 +414,7 @@ func TestStatsModel_View_RendersSessionHistoryStub(t *testing.T) {
 
 func TestStatsModel_View_RendersExportStub(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to export
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
@@ -338,7 +434,7 @@ func TestStatsModel_View_RendersExportStub(t *testing.T) {
 
 func TestStatsModel_View_SwitchingBetweenViews(t *testing.T) {
 	totalStats := &stats.TotalStats{TotalHours: 10}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Start at overview
 	view := model.View()
@@ -361,7 +457,7 @@ func TestStatsModel_View_SwitchingBetweenViews(t *testing.T) {
 
 func TestStatsModel_SetAllPlanStats(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "plan1", PlanTitle: "Rust", Progress: 0.5},
@@ -379,7 +475,7 @@ func TestStatsModel_SetAllPlanStats(t *testing.T) {
 
 func TestStatsModel_PlanList_EmptyState(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to plan list without setting plans
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -394,7 +490,7 @@ func TestStatsModel_PlanList_EmptyState(t *testing.T) {
 
 func TestStatsModel_PlanList_NavigateDown(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "plan1", PlanTitle: "Rust"},
@@ -421,7 +517,7 @@ func TestStatsModel_PlanList_NavigateDown(t *testing.T) {
 
 func TestStatsModel_PlanList_NavigateUp(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "plan1", PlanTitle: "Rust"},
@@ -447,7 +543,7 @@ func TestStatsModel_PlanList_NavigateUp(t *testing.T) {
 
 func TestStatsModel_PlanList_WrapAround(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "plan1", PlanTitle: "Rust"},
@@ -471,7 +567,7 @@ func TestStatsModel_PlanList_WrapAround(t *testing.T) {
 
 func TestStatsModel_PlanList_SelectPlan(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "plan1", PlanTitle: "Rust"},
@@ -500,7 +596,7 @@ func TestStatsModel_PlanList_SelectPlan(t *testing.T) {
 
 func TestStatsModel_PlanList_RenderWithPlans(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "plan1", PlanTitle: "Rust Async", Progress: 0.5, TotalHours: 10, PlannedHours: 20, Status: "in-progress"},
@@ -534,7 +630,7 @@ func TestStatsModel_PlanList_RenderWithPlans(t *testing.T) {
 
 func TestStatsModel_PlanDetail_Selection(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	now := time.Now()
 	planStats := []stats.PlanStats{
@@ -572,7 +668,7 @@ func TestStatsModel_PlanDetail_Selection(t *testing.T) {
 
 func TestStatsModel_PlanDetail_Render(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	now := time.Now()
 	planStats := []stats.PlanStats{
@@ -616,7 +712,7 @@ func TestStatsModel_PlanDetail_Render(t *testing.T) {
 
 func TestStatsModel_PlanDetail_EmptyState(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Manually set to plan detail view without selecting a plan
 	model.currentView = viewPlanDetail
@@ -630,7 +726,7 @@ func TestStatsModel_PlanDetail_EmptyState(t *testing.T) {
 
 func TestStatsModel_PlanDetail_NavigateToSessions(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "rust-async", PlanTitle: "Rust Async", Progress: 0.5},
@@ -654,7 +750,7 @@ func TestStatsModel_PlanDetail_NavigateToSessions(t *testing.T) {
 
 func TestStatsModel_PlanDetail_GoBack(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{PlanID: "rust-async", PlanTitle: "Rust Async", Progress: 0.5},
@@ -677,7 +773,7 @@ func TestStatsModel_PlanDetail_GoBack(t *testing.T) {
 
 func TestStatsModel_PlanDetail_ProgressBar(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	planStats := []stats.PlanStats{
 		{
@@ -707,7 +803,7 @@ func TestStatsModel_PlanDetail_ProgressBar(t *testing.T) {
 
 func TestStatsModel_SessionHistory_WithData(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Create test sessions
 	now := time.Now()
@@ -747,7 +843,7 @@ func TestStatsModel_SessionHistory_WithData(t *testing.T) {
 
 func TestStatsModel_SessionHistory_FilteredByPlan(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Create test sessions for multiple plans
 	now := time.Now()
@@ -780,7 +876,7 @@ func TestStatsModel_SessionHistory_FilteredByPlan(t *testing.T) {
 
 func TestStatsModel_SessionHistory_Pagination(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Create 25 sessions (more than maxDisplay of 20)
 	now := time.Now()
@@ -814,7 +910,7 @@ func TestStatsModel_SessionHistory_Pagination(t *testing.T) {
 
 func TestStatsModel_SessionHistory_CursorNavigation(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Create test sessions
 	now := time.Now()
@@ -848,7 +944,7 @@ func TestStatsModel_SessionHistory_CursorNavigation(t *testing.T) {
 
 func TestStatsModel_SessionHistory_CursorWrapAround(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Create test sessions
 	now := time.Now()
@@ -874,7 +970,7 @@ func TestStatsModel_SessionHistory_CursorWrapAround(t *testing.T) {
 
 func TestStatsModel_SessionHistory_CursorResetOnViewSwitch(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Create test sessions
 	now := time.Now()
@@ -902,7 +998,7 @@ func TestStatsModel_SessionHistory_CursorResetOnViewSwitch(t *testing.T) {
 
 func TestStatsModel_SessionHistory_FilteredCursorBounds(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Create sessions for multiple plans
 	now := time.Now()
@@ -939,7 +1035,7 @@ func TestStatsModel_SessionHistory_FilteredCursorBounds(t *testing.T) {
 
 func TestStatsModel_Export_NavigateOptions(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to export
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
@@ -964,7 +1060,7 @@ func TestStatsModel_Export_NavigateOptions(t *testing.T) {
 
 func TestStatsModel_Export_SelectOption(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to export
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
@@ -981,7 +1077,7 @@ func TestStatsModel_Export_SelectOption(t *testing.T) {
 
 func TestStatsModel_Export_SelectFullReport(t *testing.T) {
 	totalStats := &stats.TotalStats{}
-	model := NewStatsModel(totalStats, nil)
+	model := newTestStatsModuleWithTotals(totalStats)
 
 	// Switch to export
 	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
@@ -999,4 +1095,28 @@ func TestStatsModel_Export_SelectFullReport(t *testing.T) {
 
 	// Should go back to previous view
 	assert.Equal(t, viewOverview, m.currentView)
+}
+
+func TestStatsModel_RefreshOnBroadcast(t *testing.T) {
+	planStub := newStubPlanService()
+	sessionStub := newStubSessionService()
+	service := stats.NewService(planStub, sessionStub)
+
+	module := NewStatsModule(service, sessionStub, stats.NewTimeRangeAll())
+
+	updated, cmd := module.Update(app.ModuleActivatedMsg{ID: module.ID(), FirstActivation: true})
+	mod := updated.(*StatsModel)
+	mod = drainStatsCommands(mod, cmd)
+
+	initialList := planStub.listCalls
+	initialGet := planStub.getCalls
+	initialSessions := sessionStub.listAllCalls
+
+	updated, cmd = mod.Update(app.BroadcastMsg{Topic: app.TopicPlansChanged})
+	mod = updated.(*StatsModel)
+	drainStatsCommands(mod, cmd)
+
+	assert.Greater(t, planStub.listCalls, initialList)
+	assert.Greater(t, planStub.getCalls, initialGet)
+	assert.Greater(t, sessionStub.listAllCalls, initialSessions)
 }

@@ -485,6 +485,32 @@ func TestService_List_EmptyPlanID(t *testing.T) {
 	assert.Contains(t, err.Error(), "plan ID cannot be empty")
 }
 
+func TestService_ListAll(t *testing.T) {
+	repo := NewMockRepository()
+	service := NewService(repo, nil)
+	ctx := context.Background()
+
+	// Create sessions for different plans
+	sessionCount := 4
+	for i := 0; i < sessionCount; i++ {
+		start := time.Now().Add(time.Duration(-i) * time.Hour)
+		end := start.Add(30 * time.Minute)
+		session := &Session{
+			ID:        uuid.New().String(),
+			PlanID:    fmt.Sprintf("plan-%d", i%2),
+			StartTime: start,
+			EndTime:   &end,
+			Duration:  30,
+			CreatedAt: start,
+		}
+		require.NoError(t, repo.Create(ctx, session))
+	}
+
+	sessions, err := service.ListAll(ctx)
+	require.NoError(t, err)
+	assert.Len(t, sessions, sessionCount)
+}
+
 func TestService_GetByPlan_Success(t *testing.T) {
 	repo := NewMockRepository()
 	service := NewService(repo, nil)

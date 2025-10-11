@@ -11,17 +11,19 @@ import (
 
 // Table renders a styled table with headers and rows.
 type Table struct {
-	headers []string
-	rows    [][]string
-	border  bool
+	headers         []string
+	rows            [][]string
+	border          bool
+	highlightedRows map[int]bool
 }
 
 // NewTable creates a new table with the given headers.
 func NewTable(headers []string) *Table {
 	return &Table{
-		headers: headers,
-		rows:    make([][]string, 0),
-		border:  false,
+		headers:         headers,
+		rows:            make([][]string, 0),
+		border:          false,
+		highlightedRows: map[int]bool{},
 	}
 }
 
@@ -39,6 +41,16 @@ func (t *Table) AddRow(values []string) {
 		}
 	}
 	t.rows = append(t.rows, row)
+}
+
+// AddHighlightedRow adds a row and marks it as highlighted.
+func (t *Table) AddHighlightedRow(values []string) {
+	initialCount := len(t.rows)
+	t.AddRow(values)
+	if t.highlightedRows == nil {
+		t.highlightedRows = map[int]bool{}
+	}
+	t.highlightedRows[initialCount] = true
 }
 
 // SetBorder enables or disables table borders.
@@ -90,8 +102,13 @@ func (t *Table) View() string {
 
 	// Render rows
 	normalStyle := lipgloss.NewStyle()
-	for _, row := range t.rows {
-		result.WriteString(t.renderRow(row, colWidths, &normalStyle))
+	highlightStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("213"))
+	for i, row := range t.rows {
+		style := normalStyle
+		if t.highlightedRows[i] {
+			style = highlightStyle
+		}
+		result.WriteString(t.renderRow(row, colWidths, &style))
 		result.WriteString("\n")
 	}
 

@@ -16,6 +16,7 @@ import (
 	"github.com/pezware/samedi.dev/internal/stats"
 	"github.com/pezware/samedi.dev/internal/storage"
 	"github.com/pezware/samedi.dev/internal/tui"
+	"github.com/pezware/samedi.dev/internal/tui/app"
 	"github.com/spf13/cobra"
 )
 
@@ -136,7 +137,7 @@ func displayTotalStats(ctx context.Context, service *stats.Service, timeRange st
 	}
 
 	if tuiMode {
-		return launchTUI(ctx, service, timeRange, totalStats, nil)
+		return launchTUI(service, timeRange)
 	}
 
 	// Print total stats
@@ -185,7 +186,7 @@ func displayPlanStats(ctx context.Context, service *stats.Service, planID string
 	}
 
 	if tuiMode {
-		return launchTUI(ctx, service, timeRange, nil, planStats)
+		return launchTUI(service, timeRange)
 	}
 
 	// Print plan stats
@@ -443,45 +444,24 @@ func (a *statsSessionServiceAdapter) ListAll(ctx context.Context) ([]*session.Se
 	return a.repo.List(ctx, "", 0)
 }
 
-// launchTUI starts the Bubble Tea program with the stats model.
-func launchTUI(ctx context.Context, service *stats.Service, timeRange stats.TimeRange, totalStats *stats.TotalStats, planStats *stats.PlanStats) error {
-	model := tui.NewStatsModel(totalStats, planStats)
-
-	// Fetch all plan stats for the plan list view
-	allPlanStatsMap, err := service.GetAllPlanStats(ctx, timeRange)
-	if err != nil {
-		return fmt.Errorf("failed to get all plan stats: %w", err)
-	}
-
-	// Convert map to slice for TUI model
-	allPlanStats := make([]stats.PlanStats, 0, len(allPlanStatsMap))
-	for _, ps := range allPlanStatsMap {
-		allPlanStats = append(allPlanStats, ps)
-	}
-
-	// Set plan stats on model
-	model.SetAllPlanStats(allPlanStats)
-
-	// Fetch all sessions for session history view
+// launchTUI starts the Bubble Tea program with the stats module only.
+func launchTUI(service *stats.Service, timeRange stats.TimeRange) error {
 	sessionRepo, err := getSessionRepo()
 	if err != nil {
 		return fmt.Errorf("failed to initialize session repository: %w", err)
 	}
 
-	sessionAdapter := &statsSessionServiceAdapter{
-		repo: sessionRepo,
-	}
-	allSessions, err := sessionAdapter.ListAll(ctx)
+	sessionAdapter := &statsSessionServiceAdapter{repo: sessionRepo}
+
+	module := tui.NewStatsModule(service, sessionAdapter, timeRange)
+
+	shell, err := app.New([]app.Module{module})
 	if err != nil {
-		return fmt.Errorf("failed to get sessions: %w", err)
+		return fmt.Errorf("failed to create stats TUI: %w", err)
 	}
 
-	// Set sessions on model
-	model.SetSessions(allSessions)
-
-	p := tea.NewProgram(model)
-
-	if _, err := p.Run(); err != nil {
+	program := tea.NewProgram(shell)
+	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("failed to run TUI: %w", err)
 	}
 

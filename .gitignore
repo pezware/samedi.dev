@@ -127,6 +127,7 @@ __debug_bin
 # Local development
 local/
 scratch/
+.gocache/
 
 # CI/CD artifacts
 .test-results/

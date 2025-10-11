@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pezware/samedi.dev/internal/session"
 	"github.com/pezware/samedi.dev/internal/stats"
+	"github.com/pezware/samedi.dev/internal/tui/app"
 	"github.com/pezware/samedi.dev/internal/tui/components"
 )
 
@@ -25,8 +27,18 @@ const (
 	viewExport         viewState = "export-dialog"   // Export configuration
 )
 
-// StatsModel is the Bubble Tea model for the stats dashboard.
+// SessionProvider supplies session data for statistics.
+type SessionProvider interface {
+	ListAll(ctx context.Context) ([]*session.Session, error)
+}
+
+// StatsModel is the Bubble Tea module for the stats dashboard.
 type StatsModel struct {
+	service        *stats.Service
+	sessionService SessionProvider
+	ctx            context.Context
+	timeRange      stats.TimeRange
+
 	totalStats *stats.TotalStats
 	planStats  *stats.PlanStats
 	viewMode   string // "total" or "plan" - kept for backward compatibility
@@ -48,25 +60,52 @@ type StatsModel struct {
 	// Export dialog fields
 	exportType       string // "summary" or "full"
 	exportMenuCursor int    // Cursor in export menu
+
+	// Loading state
+	loading    bool
+	dataLoaded bool
+	loadErr    error
 }
 
-// NewStatsModel creates a new stats model.
-// Either totalStats or planStats should be non-nil, but not both.
-func NewStatsModel(totalStats *stats.TotalStats, planStats *stats.PlanStats) *StatsModel {
-	viewMode := "total"
-	if planStats != nil {
-		viewMode = "plan"
-	}
-
+// NewStatsModule constructs a stats module backed by the provided services.
+func NewStatsModule(service *stats.Service, sessionService SessionProvider, timeRange stats.TimeRange) *StatsModel {
 	return &StatsModel{
-		totalStats:  totalStats,
-		planStats:   planStats,
-		viewMode:    viewMode,
-		width:       80,
-		height:      24,
-		currentView: viewOverview,  // Start at overview
-		viewHistory: []viewState{}, // Empty history stack
+		service:        service,
+		sessionService: sessionService,
+		ctx:            context.Background(),
+		timeRange:      timeRange,
+		viewMode:       "total",
+		width:          80,
+		height:         24,
+		currentView:    viewOverview,
+		viewHistory:    []viewState{},
 	}
+}
+
+// ID returns the module identifier.
+func (m *StatsModel) ID() string {
+	return "stats"
+}
+
+// Title is displayed in the navigation bar.
+func (m *StatsModel) Title() string {
+	return "Stats"
+}
+
+// Shortcuts exposes module-specific keyboard hints for the shell footer.
+func (m *StatsModel) Shortcuts() []app.Shortcut {
+	return []app.Shortcut{
+		{Key: "p", Description: "plan list"},
+		{Key: "s", Description: "sessions"},
+		{Key: "e", Description: "export"},
+	}
+}
+
+type statsDataLoadedMsg struct {
+	totalStats   *stats.TotalStats
+	allPlanStats []stats.PlanStats
+	sessions     []*session.Session
+	err          error
 }
 
 // Init initializes the model.
@@ -105,6 +144,54 @@ func (m *StatsModel) switchView(newView viewState) (*StatsModel, tea.Cmd) {
 	return m, nil
 }
 
+func (m *StatsModel) refreshData() tea.Cmd {
+	if m.service == nil || m.sessionService == nil {
+		return func() tea.Msg {
+			return app.StatusMsg{
+				Message: "Stats services unavailable",
+				IsError: true,
+			}
+		}
+	}
+
+	m.loading = true
+	m.loadErr = nil
+
+	return func() tea.Msg {
+		totalStats, err := m.service.GetTotalStats(m.ctx, m.timeRange)
+		if err != nil {
+			return statsDataLoadedMsg{err: err}
+		}
+
+		currentStreak, longestStreak, err := m.service.GetStreakInfo(m.ctx)
+		if err == nil {
+			totalStats.CurrentStreak = currentStreak
+			totalStats.LongestStreak = longestStreak
+		}
+
+		allPlanStatsMap, err := m.service.GetAllPlanStats(m.ctx, m.timeRange)
+		if err != nil {
+			return statsDataLoadedMsg{err: err}
+		}
+
+		allPlanStats := make([]stats.PlanStats, 0, len(allPlanStatsMap))
+		for _, ps := range allPlanStatsMap {
+			allPlanStats = append(allPlanStats, ps)
+		}
+
+		sessions, err := m.sessionService.ListAll(m.ctx)
+		if err != nil {
+			return statsDataLoadedMsg{err: err}
+		}
+
+		return statsDataLoadedMsg{
+			totalStats:   totalStats,
+			allPlanStats: allPlanStats,
+			sessions:     sessions,
+		}
+	}
+}
+
 // goBack returns to the previous view from history stack.
 //
 //nolint:unparam // tea.Cmd return kept for consistency with Bubble Tea patterns
@@ -129,10 +216,49 @@ func (m *StatsModel) goBack() (*StatsModel, tea.Cmd) {
 func (m *StatsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.loading {
+			// Ignore input while loading to prevent inconsistent state
+			return m, nil
+		}
 		return m.handleKeyMsg(msg)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+	case app.ModuleActivatedMsg:
+		if msg.ID == m.ID() {
+			cmd := m.refreshData()
+			return m, cmd
+		}
+	case app.BroadcastMsg:
+		if msg.Topic == app.TopicPlansChanged {
+			cmd := m.refreshData()
+			return m, cmd
+		}
+	case statsDataLoadedMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.loadErr = msg.err
+			return m, func() tea.Msg {
+				return app.StatusMsg{
+					Message: fmt.Sprintf("Failed to load stats: %v", msg.err),
+					IsError: true,
+				}
+			}
+		}
+
+		m.loadErr = nil
+		m.dataLoaded = true
+		m.totalStats = msg.totalStats
+		m.planStats = nil // Reset any plan-specific view
+		m.viewMode = "total"
+		m.currentView = viewOverview
+		m.viewHistory = m.viewHistory[:0]
+		m.SetAllPlanStats(msg.allPlanStats)
+		m.SetSessions(msg.sessions)
+
+		return m, func() tea.Msg {
+			return app.StatusMsg{Message: "Stats updated"}
+		}
 	}
 
 	return m, nil
@@ -266,6 +392,18 @@ func (m *StatsModel) handleArrowKey(direction int) (*StatsModel, tea.Cmd) {
 
 // View renders the TUI based on current view state.
 func (m *StatsModel) View() string {
+	if m.loading {
+		return "Loading statistics…"
+	}
+
+	if m.loadErr != nil {
+		return fmt.Sprintf("Failed to load stats: %v\n\nPress Tab to retry.", m.loadErr)
+	}
+
+	if !m.dataLoaded || m.totalStats == nil {
+		return "No statistics available yet.\nStart a session to generate learning data."
+	}
+
 	switch m.currentView {
 	case viewPlanList:
 		return m.renderPlanList()

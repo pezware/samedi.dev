@@ -246,6 +246,15 @@ func (s *Service) List(ctx context.Context, planID string, limit int) ([]*Sessio
 	return sessions, nil
 }
 
+// ListAll retrieves all sessions across all plans ordered by start time descending.
+func (s *Service) ListAll(ctx context.Context) ([]*Session, error) {
+	sessions, err := s.repo.List(ctx, "", 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	}
+	return sessions, nil
+}
+
 // GetByPlan retrieves all sessions for a specific plan.
 func (s *Service) GetByPlan(ctx context.Context, planID string) ([]*Session, error) {
 	if planID == "" {

@@ -16,7 +16,7 @@ import (
 func TestStatsModel_NavigationBugFix_PressingSameKeyTwice(t *testing.T) {
 	t.Run("pressing 'p' while on plan list", func(t *testing.T) {
 		totalStats := &stats.TotalStats{}
-		model := NewStatsModel(totalStats, nil)
+		model := newTestStatsModuleWithTotals(totalStats)
 
 		// Switch to plan list
 		updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
@@ -36,7 +36,7 @@ func TestStatsModel_NavigationBugFix_PressingSameKeyTwice(t *testing.T) {
 
 	t.Run("pressing 's' while on session history", func(t *testing.T) {
 		totalStats := &stats.TotalStats{}
-		model := NewStatsModel(totalStats, nil)
+		model := newTestStatsModuleWithTotals(totalStats)
 
 		// Switch to session history
 		updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
@@ -56,7 +56,7 @@ func TestStatsModel_NavigationBugFix_PressingSameKeyTwice(t *testing.T) {
 
 	t.Run("pressing 'e' while on export dialog", func(t *testing.T) {
 		totalStats := &stats.TotalStats{}
-		model := NewStatsModel(totalStats, nil)
+		model := newTestStatsModuleWithTotals(totalStats)
 
 		// Switch to export
 		updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})

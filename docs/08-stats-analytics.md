@@ -189,7 +189,15 @@ The interactive TUI provides multiple views for exploring your learning statisti
 
 ### 1. Overview Dashboard
 
-**Command**: `samedi stats --tui` or `samedi stats <plan-id> --tui`
+**Command**: `samedi ui` (recommended) or `samedi stats --tui`
+
+`samedi ui` launches the shared dashboard with both plan management and stats
+modules. Use `Tab` or `1…9` to switch modules. The legacy
+`samedi stats --tui` entry point still works and loads the stats module alone.
+
+Whenever plans are created, edited, or deleted from the dashboard, the stats
+module receives a broadcast and refreshes immediately—no need to re-open the
+view manually.
 
 The default view shows aggregate learning statistics:
 
