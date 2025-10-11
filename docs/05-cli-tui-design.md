@@ -24,6 +24,7 @@ samedi [command] [subcommand] [options]
 | **Sessions** | `start`, `stop`, `status` | Track learning time |
 | **Review** | `review`, `cards` | Flashcard practice |
 | **Stats** | `stats`, `report` | Progress visualization |
+| **Dashboard** | `ui` | Combined plan & stats TUI |
 | **Management** | `config`, `sync`, `backup` | System operations |
 
 ## Command Reference
@@ -686,6 +687,54 @@ samedi plan list --json | jq -r '.[] | select(.status=="in-progress") | .id'
 # Output: french-b1
 #         music-theory
 ```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Invalid arguments |
+| 3 | LLM CLI error |
+| 4 | Data validation error |
+| 5 | Active session conflict |
+| 6 | Not found (plan/session) |
+
+### 5. Interactive Dashboard (`samedi ui`)
+
+The new `samedi ui` command launches a multi-module Bubble Tea dashboard that
+combines plan management and statistics in a single experience.
+
+**Launch**
+
+```bash
+samedi ui
+```
+
+**Modules**
+
+- **Plans**: Manage plans without leaving the terminal.
+  - Arrow keys navigate plan list and chunk lists.
+  - `Enter` opens plan detail; `Esc` returns to list.
+  - `n` creates a plan (topic, hours, level prompt).
+  - `e` edits plan metadata (title, hours, tags).
+  - `d` prompts for deletion with confirmation.
+  - `space` cycles chunk status (not-started → in-progress → completed → skipped).
+- **Stats**: Mirrors `samedi stats --tui` functionality with auto-refresh when
+  activated from the shell. Daily breakdowns, plan summaries, and export dialog
+  behave as described in the stats section.
+  - Receives plan-change broadcasts so data refreshes automatically after edits
+    made in other modules.
+
+**Global navigation**
+
+- `Tab` / `Shift+Tab`: cycle modules.
+- `1…9`: jump directly to a module.
+- `q`: quit the dashboard.
+- Footer shows module-specific shortcuts provided by each module.
+
+This shared shell is designed to grow: future modules (flashcards, insights)
+can plug into the same navigation without reworking the UI scaffold.
 
 ### Exit Codes
 
