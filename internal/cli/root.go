@@ -29,21 +29,24 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "samedi",
 	Short: "A learning operating system for the terminal",
-	Long: `Samedi helps you track and manage your learning journey across any domain.
+	Long: `Samedi is a terminal-first learning OS. Drive it with focused commands or launch the full-screen dashboard when you want to explore visually.
 
-Features:
-  - LLM-powered learning plan generation
-  - Session time tracking
-  - Spaced repetition flashcards
-  - Progress visualization
-  - Markdown-based, git-trackable plans
-
-Example:
+Core workflows:
+  samedi ui                       Launch the interactive plans + stats dashboard
   samedi init "rust async programming" --hours 40
-  samedi start rust-async chunk-001
+  samedi plan list --status in-progress
+  samedi start <plan-id> [chunk-id]
   samedi stop
-  samedi review
-  samedi stats`,
+  samedi show <plan-id> <chunk-id>
+  samedi stats --range this-week
+  samedi stats --tui               Stats dashboard only
+
+Global flags:
+  -c, --config PATH   override config file (default $HOME/.samedi/config.toml)
+  --json              machine-readable output where supported (plan list/show, stats, report)
+  -v, --verbose       emit extra diagnostics
+
+Use 'samedi <command> --help' for per-command details.`,
 	Run: func(cmd *cobra.Command, _ []string) {
 		// If no subcommand, show help or launch TUI (future)
 		if err := cmd.Help(); err != nil {
