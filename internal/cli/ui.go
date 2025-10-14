@@ -17,6 +17,18 @@ func uiCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ui",
 		Short: "Launch the interactive Samedi dashboard",
+		Long: `Launch the Bubble Tea dashboard for Samedi.
+
+Modules:
+  - Plans: browse plans, inspect chunks, create or edit plans, toggle chunk status.
+  - Stats: review streaks, drill into plan metrics, inspect session history, export summaries.
+
+Navigation:
+  - Tab / Shift+Tab cycle modules, 1–9 jump directly, q or Ctrl+C exits.
+  - Plans shortcuts: Enter view plan, n new plan, space toggle chunk, e edit metadata, d delete.
+  - Stats shortcuts: p plan list, s session history, e export dialog.
+
+Tip: open the stats module on its own with 'samedi stats --tui'.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			planService, err := getPlanService(cmd, "")
 			if err != nil {

@@ -17,7 +17,7 @@ Samedi is a CLI-native tool for tracking and managing your learning journey acro
 - **🤖 LLM-Powered Curricula**: Generate learning plans with Claude, Codex, or any LLM CLI
 - **⏱️ Time Tracking**: Track sessions with simple `start`/`stop` commands
 - **🎴 Spaced Repetition**: Built-in flashcard system with SM-2 algorithm
-- **📊 Progress Dashboard**: Beautiful TUI to visualize your learning journey
+- **📊 Progress Dashboard**: Beautiful TUI (`samedi ui`) to visualize your learning journey
 - **📝 Markdown-Based**: All plans in git-trackable markdown
 - **🔄 Cloud Sync**: Optional multi-device sync via Cloudflare (Phase 2)
 
@@ -88,6 +88,13 @@ make install
 
    ```bash
    samedi stats
+   ```
+
+5. **Explore the dashboard**:
+
+   ```bash
+   samedi ui
+   # Tab/Shift+Tab to switch modules, q to quit
    ```
 
 ---

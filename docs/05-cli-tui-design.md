@@ -29,6 +29,22 @@ samedi [command] [subcommand] [options]
 
 ## Command Reference
 
+### Dashboard
+
+`samedi ui`
+
+Launch the full-screen Bubble Tea dashboard that combines the Plan and Stats modules.
+
+- **Modules**:
+  - *Plans* — browse plans and chunks, create or edit metadata, toggle chunk status.
+  - *Stats* — inspect streaks, per-plan metrics, session history, and export summaries.
+- **Navigation**:
+  - `Tab` / `Shift+Tab` cycle modules, `1`–`9` jump directly, `q` or `Ctrl+C` exits.
+  - Plans shortcuts: `Enter` view plan, `n` new plan, `space` toggle chunk, `e` edit metadata, `d` delete.
+  - Stats shortcuts: `p` plan list, `s` session history, `e` export dialog.
+
+For a stats-only dashboard, run `samedi stats --tui`.
+
 ### 1. Plan Management
 
 #### `samedi init <topic>`
