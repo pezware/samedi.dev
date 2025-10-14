@@ -4,6 +4,9 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,6 +38,10 @@ func TestInitCmd_Structure(t *testing.T) {
 	noCards := cmd.Flags().Lookup("no-cards")
 	require.NotNil(t, noCards)
 	assert.Equal(t, "false", noCards.DefValue)
+
+	noPrompt := cmd.Flags().Lookup("no-prompt")
+	require.NotNil(t, noPrompt)
+	assert.Equal(t, "false", noPrompt.DefValue)
 }
 
 func TestInitCmd_RequiresTopicArg(t *testing.T) {
@@ -53,3 +60,43 @@ func TestInitCmd_RequiresTopicArg(t *testing.T) {
 
 // Note: Full integration tests with actual plan creation will be in
 // integration test suite to avoid complex mocking of the service layer
+
+func TestPromptForHours_Default(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("\n"))
+	var output bytes.Buffer
+
+	value, err := promptForHours(reader, &output, 40)
+	require.NoError(t, err)
+	assert.Equal(t, 40.0, value)
+}
+
+func TestPromptForHours_InvalidThenValid(t *testing.T) {
+	input := "abc\n1001\n80\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	var output bytes.Buffer
+
+	value, err := promptForHours(reader, &output, 40)
+	require.NoError(t, err)
+	assert.Equal(t, 80.0, value)
+	assert.Contains(t, output.String(), "Please enter a number between 1 and 1000.")
+}
+
+func TestPromptForLevel(t *testing.T) {
+	input := "expert\nIntermediate\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	var output bytes.Buffer
+
+	level, err := promptForLevel(reader, &output)
+	require.NoError(t, err)
+	assert.Equal(t, "intermediate", level)
+	assert.Contains(t, output.String(), "Please choose beginner, intermediate, advanced or leave blank.")
+}
+
+func TestPromptForGoals(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("Focus on conversation\n"))
+	var output bytes.Buffer
+
+	goals, err := promptForGoals(reader, &output)
+	require.NoError(t, err)
+	assert.Equal(t, "Focus on conversation", goals)
+}
