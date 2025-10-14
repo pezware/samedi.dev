@@ -17,7 +17,6 @@ import (
 	"github.com/pezware/samedi.dev/internal/plan"
 	"github.com/pezware/samedi.dev/internal/storage"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 // initCmd creates the `samedi init` command for plan generation.
@@ -172,7 +171,7 @@ type initInputs struct {
 }
 
 func collectInitInputs(cmd *cobra.Command, inputs *initInputs, noPrompt bool) error {
-	if !shouldPromptForInit(noPrompt) {
+	if !isInteractive(noPrompt) {
 		return nil
 	}
 
@@ -264,15 +263,6 @@ func openPlanInEditor(planID string) error {
 	editorCmd.Stderr = os.Stderr
 
 	return editorCmd.Run()
-}
-
-// shouldPromptForInit determines if interactive prompts should be shown.
-func shouldPromptForInit(noPrompt bool) bool {
-	if noPrompt {
-		return false
-	}
-
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 }
 
 // promptForHours asks the user for total hours, enforcing validation rules.
