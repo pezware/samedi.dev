@@ -4,8 +4,13 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
+	"io"
+	"strings"
 	"testing"
 
+	"github.com/pezware/samedi.dev/internal/plan"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,6 +51,16 @@ func TestStartCmd_Flags(t *testing.T) {
 	require.NotNil(t, note)
 	assert.Equal(t, "", note.DefValue)
 	assert.Equal(t, "initial notes for the session", note.Usage)
+
+	noPrompt := cmd.Flags().Lookup("no-prompt")
+	require.NotNil(t, noPrompt)
+	assert.Equal(t, "false", noPrompt.DefValue)
+	assert.Equal(t, "skip interactive prompts", noPrompt.Usage)
+
+	showChunks := cmd.Flags().Lookup("show-chunks")
+	require.NotNil(t, showChunks)
+	assert.Equal(t, "false", showChunks.DefValue)
+	assert.Equal(t, "display chunk details before prompting", showChunks.Usage)
 }
 
 func TestStopCmd_Structure(t *testing.T) {
@@ -82,6 +97,11 @@ func TestStopCmd_Flags(t *testing.T) {
 	require.NotNil(t, artifact)
 	assert.Equal(t, "[]", artifact.DefValue)
 	assert.Equal(t, "learning artifacts (URLs or file paths)", artifact.Usage)
+
+	auto := cmd.Flags().Lookup("auto")
+	require.NotNil(t, auto)
+	assert.Equal(t, "false", auto.DefValue)
+	assert.Equal(t, "skip interactive prompts and use defaults", auto.Usage)
 }
 
 func TestStatusCmd_Structure(t *testing.T) {
@@ -139,4 +159,55 @@ func TestRootCmd_HasSessionCommands(t *testing.T) {
 	assert.True(t, hasStart, "rootCmd should have 'start' command")
 	assert.True(t, hasStop, "rootCmd should have 'stop' command")
 	assert.True(t, hasStatus, "rootCmd should have 'status' command")
+}
+
+func TestPromptForInitialNote_Default(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("\n"))
+	note, err := promptForInitialNote(reader, io.Discard)
+	require.NoError(t, err)
+	assert.Equal(t, "", note)
+}
+
+func TestPromptForStopNote_Default(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("\n"))
+	note, err := promptForStopNote(reader, io.Discard)
+	require.NoError(t, err)
+	assert.Equal(t, "", note)
+}
+
+func TestPromptForArtifacts_Multiple(t *testing.T) {
+	input := "github.com/example/repo\nnotes.md\n\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	artifacts, err := promptForArtifacts(reader, io.Discard)
+	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"github.com/example/repo",
+		"notes.md",
+	}, artifacts)
+}
+
+func TestPrintAllChunkDetails(t *testing.T) {
+	p := &plan.Plan{
+		Chunks: []plan.Chunk{
+			{
+				ID:          "chunk-001",
+				Title:       "Intro",
+				Duration:    45,
+				Status:      plan.StatusNotStarted,
+				Objectives:  []string{"Understand basics"},
+				Resources:   []string{"Book", "Video"},
+				Deliverable: "Summary notes",
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	printAllChunkDetails(&buf, p)
+
+	output := buf.String()
+	assert.Contains(t, output, "chunk-001")
+	assert.Contains(t, output, "Intro")
+	assert.Contains(t, output, "Objectives:")
+	assert.Contains(t, output, "Resources:")
+	assert.Contains(t, output, "Summary notes")
 }
