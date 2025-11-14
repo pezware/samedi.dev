@@ -35,7 +35,7 @@ func (m *MockModule) Init() tea.Cmd {
 	return nil
 }
 
-func (m *MockModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *MockModule) Update(_ tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
