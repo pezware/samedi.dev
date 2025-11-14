@@ -1120,3 +1120,200 @@ func TestStatsModel_RefreshOnBroadcast(t *testing.T) {
 	assert.Greater(t, planStub.getCalls, initialGet)
 	assert.Greater(t, sessionStub.listAllCalls, initialSessions)
 }
+
+// Test Module Interface Methods
+
+func TestStatsModel_ID(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+
+	assert.Equal(t, "stats", module.ID())
+}
+
+func TestStatsModel_Title(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+
+	assert.Equal(t, "Stats", module.Title())
+}
+
+func TestStatsModel_Shortcuts(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+
+	shortcuts := module.Shortcuts()
+
+	assert.NotEmpty(t, shortcuts)
+	// Should have p, s, e shortcuts
+	assert.GreaterOrEqual(t, len(shortcuts), 3)
+
+	hasP := false
+	hasS := false
+	hasE := false
+
+	for _, sc := range shortcuts {
+		if sc.Key == "p" {
+			hasP = true
+			assert.Equal(t, "plan list", sc.Description)
+		}
+		if sc.Key == "s" {
+			hasS = true
+			assert.Equal(t, "sessions", sc.Description)
+		}
+		if sc.Key == "e" {
+			hasE = true
+			assert.Equal(t, "export", sc.Description)
+		}
+	}
+
+	assert.True(t, hasP, "Should have 'p' shortcut for plan list")
+	assert.True(t, hasS, "Should have 's' shortcut for sessions")
+	assert.True(t, hasE, "Should have 'e' shortcut for export")
+}
+
+// Test Loading States
+
+func TestStatsModel_LoadingState_IgnoresInput(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+	module.loading = true
+
+	// Try to switch view while loading
+	updatedModel, cmd := module.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+
+	// Should still be in loading state and not have switched views
+	assert.True(t, m.loading)
+	assert.Equal(t, viewOverview, m.currentView)
+	assert.Nil(t, cmd)
+}
+
+func TestStatsModel_View_LoadingState(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+	module.loading = true
+
+	view := module.View()
+
+	assert.Contains(t, view, "Loading statistics")
+}
+
+func TestStatsModel_View_ErrorState(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+	module.loadErr = assert.AnError
+	module.loading = false
+
+	view := module.View()
+
+	assert.Contains(t, view, "Failed to load stats")
+	assert.Contains(t, view, "Press Tab to retry")
+}
+
+func TestStatsModel_View_NoDataState(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+	module.dataLoaded = false
+	module.loading = false
+
+	view := module.View()
+
+	assert.Contains(t, view, "No statistics available yet")
+	assert.Contains(t, view, "Start a session")
+}
+
+// Test Helper Functions
+
+func TestFormatNotes_TruncatesLongNotes(t *testing.T) {
+	longNotes := "This is a very long note that should be truncated to fit in the table view without breaking the layout"
+
+	formatted := formatNotes(longNotes, 30)
+
+	assert.LessOrEqual(t, len(formatted), 30)
+	assert.Contains(t, formatted, "...")
+}
+
+func TestFormatNotes_RemovesNewlines(t *testing.T) {
+	notesWithNewlines := "Line 1\nLine 2\nLine 3"
+
+	formatted := formatNotes(notesWithNewlines, 50)
+
+	assert.NotContains(t, formatted, "\n")
+	assert.Contains(t, formatted, "Line 1 Line 2 Line 3")
+}
+
+func TestFormatNotes_EmptyNotes(t *testing.T) {
+	formatted := formatNotes("", 30)
+
+	assert.Equal(t, "-", formatted)
+}
+
+func TestTruncateString_ShortString(t *testing.T) {
+	result := truncateString("short", 20)
+
+	assert.Equal(t, "short", result)
+}
+
+func TestTruncateString_LongString(t *testing.T) {
+	result := truncateString("this is a very long string", 10)
+
+	assert.Equal(t, 10, len(result))
+	assert.Contains(t, result, "...")
+	assert.Equal(t, "this is...", result)
+}
+
+func TestFormatPlanStatus_AllStatuses(t *testing.T) {
+	tests := []struct {
+		status   string
+		expected string
+	}{
+		{"not-started", "[ ] Not Started"},
+		{"in-progress", "[→] In Progress"},
+		{"completed", "[✓] Completed"},
+		{"archived", "[*] Archived"},
+		{"unknown", "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.status, func(t *testing.T) {
+			result := formatPlanStatus(tt.status)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// Test Edge Cases
+
+func TestStatsModel_SwitchView_NoOp_SameView(t *testing.T) {
+	totalStats := &stats.TotalStats{}
+	model := newTestStatsModuleWithTotals(totalStats)
+
+	// Switch to plan list
+	updatedModel, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m := updatedModel.(*StatsModel)
+	assert.Equal(t, viewPlanList, m.currentView)
+
+	// Try to switch to plan list again (should be no-op)
+	updatedModel, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = updatedModel.(*StatsModel)
+
+	// Should still be in plan list, but history shouldn't grow
+	assert.Equal(t, viewPlanList, m.currentView)
+	// History should still only have one entry (overview)
+	assert.Equal(t, []viewState{viewOverview}, m.viewHistory)
+}
+
+func TestStatsModel_WindowSizeUpdate(t *testing.T) {
+	module := NewStatsModule(nil, nil, stats.NewTimeRangeAll())
+
+	updatedModel, _ := module.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m := updatedModel.(*StatsModel)
+
+	assert.Equal(t, 120, m.width)
+	assert.Equal(t, 40, m.height)
+}
+
+func TestStatsModel_IgnoresUnknownMessages(t *testing.T) {
+	module := newTestStatsModule()
+
+	// Send an unknown message type
+	type unknownMsg struct{}
+	updatedModel, cmd := module.Update(unknownMsg{})
+
+	// Should return self and nil command
+	assert.NotNil(t, updatedModel)
+	assert.Nil(t, cmd)
+}
