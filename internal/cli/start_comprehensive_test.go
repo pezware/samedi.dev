@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/pezware/samedi.dev/internal/plan"
@@ -225,11 +224,4 @@ func TestPrintAllChunkDetails_FormatsCorrectly(t *testing.T) {
 // Helper function for tests
 func stringPtr(s string) *string {
 	return &s
-}
-
-// Mock error reader for testing error cases
-type errorReader struct{}
-
-func (e *errorReader) Read(p []byte) (n int, err error) {
-	return 0, errors.New("mock read error")
 }
